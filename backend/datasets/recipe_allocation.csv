@@ -1,0 +1,9 @@
+flour_type,recipe_id,allocation_pct,notes
+Superior,R1,0.6,Primary recipe for Superior
+Superior,R2,0.4,Alternative recipe
+Bakery,R2,0.5,Primary recipe
+Bakery,R4,0.5,Alternative recipe
+Patent,R2,0.7,Primary recipe
+Patent,R5,0.3,Premium alternative
+Brown,R3,1.0,Only recipe
+Superior Brown,R3,1.0,Only recipe

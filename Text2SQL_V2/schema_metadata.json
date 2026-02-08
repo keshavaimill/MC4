@@ -1,0 +1,523 @@
+{
+  "global_rules": {
+    "sql_dialect": "sqlite",
+    "case_insensitive_matching": "SQLite does not support ILIKE. Always use LOWER(column) LIKE '%value%'",
+    "forecast_rule": "Forecasted date is not stored directly. It must be computed as date + forecast_horizon (in days).",
+    "forecast_sql_expression_sqlite": "date(date, '+' || CAST(REPLACE(forecast_horizon, 'day', '') AS INTEGER) || ' days')",
+    "critical_warnings": [
+      "NEVER filter forecast tables directly using date",
+      "ALWAYS compute forecast_date before applying BETWEEN, GROUP BY, or ORDER BY",
+      "Use case-insensitive matching for store_id unless an exact ID is provided",
+      "NEVER invent or guess column names, table names, or values - use ONLY what is provided in this metadata",
+      "NEVER use columns or tables that are not explicitly listed in the schema below",
+      "If a column or table is not in the metadata, it does NOT exist - do not use it"
+    ],
+    "anti_hallucination_rules": [
+      "ONLY use tables and columns explicitly defined in the schema below",
+      "ONLY use sample values provided in the metadata - do not invent values",
+      "If unsure about a column name, check the exact spelling in the metadata",
+      "If a user asks about data not in the schema, inform them it's not available rather than guessing"
+    ]
+  },
+  "tables": {
+    "sku_daily_forecast_7day": {
+      "description": "7-day horizon SKU-level daily sales forecasts at store level. Each row represents forecasted sales units for a specific date. For simple queries asking for total forecast, just sum forecast_units. For date-filtered queries, compute forecast_date using date + forecast_horizon.",
+      "forecast_semantics": {
+        "definition": "For date-filtered queries, forecasted date must be computed as date + forecast_horizon (days). For simple total forecast queries, just sum forecast_units directly.",
+        "sql_expression_sqlite": "date(date, '+' || CAST(REPLACE(forecast_horizon, 'day', '') AS INTEGER) || ' days')",
+        "simple_query_note": "For queries like 'What is the 7-day forecast for SKU X at Store Y?', just use: SELECT SUM(forecast_units) FROM sku_daily_forecast_7day WHERE sku_id = 'X' AND store_id = 'Y'"
+      },
+      "columns": {
+        "date": {
+          "description": "Date on which the forecast was generated.",
+          "type": "date",
+          "usage_rule": "Used only to compute forecast_date"
+        },
+        "sku_id": {
+          "description": "Unique SKU identifier. Format: WL-SKU-XXX",
+          "type": "string",
+          "semantic_role": "product_identifier",
+          "matching_rule": "Use exact match unless user specifies otherwise",
+          "example_values": ["WL-SKU-001", "WL-SKU-002"]
+        },
+        "store_id": {
+          "description": "Store identifier. Format: Store_XX",
+          "type": "string",
+          "semantic_role": "store_identifier",
+          "matching_rule": "Use case-insensitive partial match",
+          "sql_rule_sqlite": "LOWER(store_id) LIKE '%value%'",
+          "example_values": ["Store_01", "Store_02"]
+        },
+        "forecast_horizon": {
+          "description": "Forecast horizon, always '7day' for this table. You can filter by this if needed, but for simple queries it's optional since all rows in this table are 7-day forecasts.",
+          "type": "string",
+          "example_values": ["7day"],
+          "allowed_values": ["7day"],
+          "usage_note": "For simple forecast queries, you don't need to filter by forecast_horizon since all rows in this table are already 7-day forecasts"
+        },
+        "forecast_units": {
+          "description": "Forecasted sales units for 7-day horizon",
+          "type": "integer",
+          "aggregation_rule": "SUM"
+        }
+      }
+    },
+    "sku_daily_forecast_30day": {
+      "description": "30-day horizon SKU-level daily sales forecasts at store level. Each row represents forecasted sales units for a store at a future date derived from forecast_horizon.",
+      "forecast_semantics": {
+        "definition": "Forecasted date must be computed as date + forecast_horizon (days).",
+        "sql_expression_sqlite": "date(date, '+' || CAST(REPLACE(forecast_horizon, 'day', '') AS INTEGER) || ' days')"
+      },
+      "columns": {
+        "date": {
+          "description": "Date on which the forecast was generated.",
+          "type": "date",
+          "usage_rule": "Used only to compute forecast_date"
+        },
+        "sku_id": {
+          "description": "Unique SKU identifier. Format: WL-SKU-XXX",
+          "type": "string",
+          "semantic_role": "product_identifier",
+          "matching_rule": "Use exact match unless user specifies otherwise",
+          "example_values": ["WL-SKU-001", "WL-SKU-002"]
+        },
+        "store_id": {
+          "description": "Store identifier. Format: Store_XX",
+          "type": "string",
+          "semantic_role": "store_identifier",
+          "matching_rule": "Use case-insensitive partial match",
+          "sql_rule_sqlite": "LOWER(store_id) LIKE '%value%'",
+          "example_values": ["Store_01", "Store_02"]
+        },
+        "forecast_horizon": {
+          "description": "Forecast horizon, typically '30day' for this table",
+          "type": "string",
+          "example_values": ["30day"]
+        },
+        "forecast_units": {
+          "description": "Forecasted sales units for 30-day horizon",
+          "type": "integer",
+          "aggregation_rule": "SUM"
+        }
+      }
+    },
+    "order_log": {
+      "description": "Historical actual sales data at SKU-store-day level. Insert-only table for recording sales transactions.",
+      "writable": true,
+      "write_rules": {
+        "allowed_operations": ["INSERT"],
+        "constraints": [
+          "Only INSERT is allowed",
+          "No UPDATE or DELETE",
+          "Append-only table"
+        ]
+      },
+      "columns": {
+        "date": {
+          "description": "Actual sales date.",
+          "type": "date",
+          "semantic_role": "actual_sales_date",
+          "example_values": ["2025-12-31", "2026-01-01"]
+        },
+        "sku_id": {
+          "description": "SKU or product identifier for the sold item. Format: WL-SKU-XXX",
+          "type": "string",
+          "semantic_role": "product_identifier",
+          "matching_rule": "Use exact match unless user specifies otherwise",
+          "example_values": ["WL-SKU-001", "WL-SKU-002"]
+        },
+        "store_id": {
+          "description": "Identifier of the store where the sale occurred. Format: Store_XX",
+          "type": "string",
+          "semantic_role": "store_identifier",
+          "matching_rule": "Use case-insensitive partial match unless exact ID is provided",
+          "sql_rule_sqlite": "LOWER(store_id) LIKE '%value%'",
+          "example_values": ["Store_01", "Store_02"]
+        },
+        "sales_channel": {
+          "description": "Sales channel through which the sale occurred.",
+          "type": "string",
+          "aggregation_rule": "Can be grouped for channel-level analysis",
+          "example_values": ["E-Commerce", "Offline Retail"],
+          "allowed_values": ["E-Commerce", "Offline Retail"]
+        },
+        "actual_sales_units": {
+          "description": "Actual number of units sold.",
+          "type": "integer",
+          "aggregation_rule": "SUM"
+        }
+      }
+    },
+    "sku_daily_sales": {
+      "description": "Daily SKU-level actual sales data at store level, including promotion indicators.",
+      "writable": false,
+      "columns": {
+        "date": {
+          "description": "Sales transaction date.",
+          "type": "date",
+          "semantic_role": "sales_date",
+          "example_values": ["2025-12-31"]
+        },
+        "sku_id": {
+          "description": "Unique SKU or product identifier. Format: WL-SKU-XXX",
+          "type": "string",
+          "semantic_role": "product_identifier",
+          "matching_rule": "Use exact match unless user specifies otherwise",
+          "example_values": ["WL-SKU-001", "WL-SKU-002"]
+        },
+        "store_id": {
+          "description": "Identifier of the store where the sale occurred. Format: Store_XX",
+          "type": "string",
+          "semantic_role": "store_identifier",
+          "matching_rule": "Use case-insensitive partial match unless exact ID is provided",
+          "sql_rule_sqlite": "LOWER(store_id) LIKE '%value%'",
+          "example_values": ["Store_01", "Store_02"]
+        },
+        "sales_channel": {
+          "description": "Channel through which the sale occurred.",
+          "type": "string",
+          "aggregation_rule": "Can be grouped for channel analysis",
+          "example_values": ["E-Commerce", "Offline Retail"],
+          "allowed_values": ["E-Commerce", "Offline Retail"]
+        },
+        "actual_sales_units": {
+          "description": "Actual number of units sold.",
+          "type": "integer",
+          "aggregation_rule": "SUM"
+        },
+        "promotion_flag": {
+          "description": "Indicates whether the SKU was under promotion on the given date (1 = yes, 0 = no).",
+          "type": "integer",
+          "semantic_role": "promotion_indicator",
+          "allowed_values": [0, 1]
+        }
+      }
+    },
+    "raw_material_inventory": {
+      "description": "Daily raw material inventory levels and movements. Each row represents inventory state for a raw material on a specific date.",
+      "writable": false,
+      "columns": {
+        "date": {
+          "description": "Inventory record date.",
+          "type": "date",
+          "semantic_role": "inventory_date",
+          "example_values": ["2025-12-31"]
+        },
+        "raw_material": {
+          "description": "Name or identifier of the raw material.",
+          "type": "string",
+          "semantic_role": "raw_material_identifier",
+          "matching_rule": "Use case-insensitive partial match",
+          "sql_rule_sqlite": "LOWER(raw_material) LIKE '%value%'",
+          "example_values": ["Leather_FG", "Rubber_Sole", "EVA_Foam", "Textile_Nylon"],
+          "distinct_values_sample": ["Leather_FG", "Rubber_Sole", "Textile_Nylon", "Leather_Suede", "EVA_Foam", "Metal_Eyelet", "Metal_Buckle", "Textile_Lining", "Metal_Zip"]
+        },
+        "opening_inventory": {
+          "description": "Inventory units available at the start of the day.",
+          "type": "integer",
+          "aggregation_rule": "Do NOT sum across days"
+        },
+        "inflow_quantity": {
+          "description": "Quantity of raw material added to inventory on the day.",
+          "type": "integer",
+          "aggregation_rule": "SUM"
+        },
+        "consumed_quantity": {
+          "description": "Quantity of raw material consumed during the day.",
+          "type": "integer",
+          "aggregation_rule": "SUM"
+        },
+        "closing_inventory": {
+          "description": "Inventory units remaining at the end of the day.",
+          "type": "integer",
+          "aggregation_rule": "Do NOT sum across days"
+        },
+        "safety_stock": {
+          "description": "Minimum required inventory level to avoid stockout.",
+          "type": "integer",
+          "semantic_role": "safety_threshold"
+        }
+      }
+    },
+    "raw_material_inventory_ledger": {
+      "description": "Comprehensive raw material inventory ledger with calculated closing inventory and validation status. Includes all inventory movements and calculated validations.",
+      "writable": false,
+      "columns": {
+        "date": {
+          "description": "Inventory record date.",
+          "type": "date",
+          "semantic_role": "inventory_date"
+        },
+        "raw_material": {
+          "description": "Name or identifier of the raw material.",
+          "type": "string",
+          "semantic_role": "raw_material_identifier",
+          "matching_rule": "Use case-insensitive partial match",
+          "sql_rule_sqlite": "LOWER(raw_material) LIKE '%value%'",
+          "example_values": ["EVA_Foam", "Leather_FG", "Rubber_Sole"]
+        },
+        "opening_inventory": {
+          "description": "Inventory units available at the start of the day.",
+          "type": "integer"
+        },
+        "inflow_quantity": {
+          "description": "Quantity of raw material added to inventory on the day.",
+          "type": "integer",
+          "aggregation_rule": "SUM"
+        },
+        "consumed_quantity": {
+          "description": "Quantity of raw material consumed during the day.",
+          "type": "integer",
+          "aggregation_rule": "SUM"
+        },
+        "closing_inventory": {
+          "description": "Recorded closing inventory units at the end of the day.",
+          "type": "integer"
+        },
+        "safety_stock": {
+          "description": "Minimum required inventory level to avoid stockout.",
+          "type": "integer"
+        },
+        "calculated_closing_inventory": {
+          "description": "Calculated closing inventory (opening + inflow - consumed).",
+          "type": "integer"
+        },
+        "inventory_validation_status": {
+          "description": "Boolean flag indicating if recorded closing inventory matches calculated value.",
+          "type": "boolean",
+          "allowed_values": [true, false],
+          "example_values": [true, false]
+        }
+      }
+    },
+    "raw_material_log": {
+      "description": "User-entered raw material inventory records. Writable table for inserting new inventory records.",
+      "writable": true,
+      "allowed_operations": ["INSERT"],
+      "columns": {
+        "date": {
+          "description": "Inventory record date.",
+          "type": "date"
+        },
+        "raw_material": {
+          "description": "Name or identifier of the raw material.",
+          "type": "string",
+          "matching_rule": "case-insensitive",
+          "sql_rule_sqlite": "LOWER(raw_material) LIKE '%value%'",
+          "example_values": ["Leather_FG", "Rubber_Sole", "EVA_Foam"]
+        },
+        "opening_inventory": {
+          "description": "Inventory units at start of day.",
+          "type": "integer"
+        },
+        "inflow_quantity": {
+          "description": "Quantity added to inventory.",
+          "type": "integer"
+        },
+        "consumed_quantity": {
+          "description": "Quantity consumed from inventory.",
+          "type": "integer"
+        },
+        "closing_inventory": {
+          "description": "Inventory units at end of day.",
+          "type": "integer"
+        },
+        "safety_stock": {
+          "description": "Minimum required inventory level.",
+          "type": "integer"
+        }
+      }
+    },
+    "sku_master": {
+      "description": "Master data table mapping SKUs to products, variants, and categories. Use this to join SKU information with other tables.",
+      "writable": false,
+      "columns": {
+        "sku_id": {
+          "description": "Unique SKU identifier. Format: WL-SKU-XXX. This is the primary key for joining with other tables.",
+          "type": "string",
+          "semantic_role": "product_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["WL-SKU-001", "WL-SKU-002", "WL-SKU-003"],
+          "distinct_values_sample": ["WL-SKU-001", "WL-SKU-002", "WL-SKU-003", "WL-SKU-004", "WL-SKU-005", "WL-SKU-006", "WL-SKU-007", "WL-SKU-008", "WL-SKU-009", "WL-SKU-010"]
+        },
+        "product_id": {
+          "description": "Product identifier. Format: WL-PROD-XXX. Multiple SKUs can map to the same product.",
+          "type": "string",
+          "semantic_role": "product_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["WL-PROD-101", "WL-PROD-102", "WL-PROD-103"],
+          "distinct_values_sample": ["WL-PROD-101", "WL-PROD-102", "WL-PROD-103", "WL-PROD-104", "WL-PROD-105"]
+        },
+        "variant": {
+          "description": "Product variant description (e.g., color and size combination).",
+          "type": "string",
+          "example_values": ["Black_Size_42", "Brown_Size_43"]
+        },
+        "category": {
+          "description": "Product category classification.",
+          "type": "string",
+          "aggregation_rule": "Can be grouped for category analysis",
+          "example_values": ["Men Casual Shoes", "Men Outdoor Boots", "Men Trekking Shoes"],
+          "distinct_values_sample": ["Men Casual Shoes", "Men Outdoor Boots", "Men Trekking Shoes", "Leather Sandals", "Leather Belts & Wallets", "Leather Accessories"]
+        }
+      }
+    },
+    "product_bom": {
+      "description": "Bill of Materials (BOM) mapping products to raw materials and consumption rates. Use this to calculate raw material requirements from product demand.",
+      "writable": false,
+      "columns": {
+        "product_id": {
+          "description": "Product identifier. Format: WL-PROD-XXX. Join with sku_master or sku_product_demand.",
+          "type": "string",
+          "semantic_role": "product_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["WL-PROD-101", "WL-PROD-102"]
+        },
+        "raw_material": {
+          "description": "Raw material identifier required for this product.",
+          "type": "string",
+          "semantic_role": "raw_material_identifier",
+          "matching_rule": "Use case-insensitive partial match",
+          "sql_rule_sqlite": "LOWER(raw_material) LIKE '%value%'",
+          "example_values": ["Leather_FG", "Rubber_Sole", "Textile_Nylon"],
+          "distinct_values_sample": ["Leather_FG", "Rubber_Sole", "Textile_Nylon", "Leather_Suede", "EVA_Foam", "Metal_Eyelet", "Metal_Buckle", "Textile_Lining", "Metal_Zip"]
+        },
+        "material_type": {
+          "description": "Type/category of the raw material.",
+          "type": "string",
+          "aggregation_rule": "Can be grouped for material type analysis",
+          "example_values": ["Leather", "Rubber", "Textile", "Metal"],
+          "allowed_values": ["Leather", "Rubber", "Textile", "Metal"]
+        },
+        "consumption_per_unit": {
+          "description": "Amount of raw material consumed per unit of product. Use this to calculate total raw material demand from product units.",
+          "type": "real",
+          "aggregation_rule": "Multiply by product_units to get material_demand_units"
+        }
+      }
+    },
+    "raw_material_demand": {
+      "description": "Forecasted raw material demand by material type and forecast horizon. Use this to understand future raw material requirements.",
+      "writable": false,
+      "columns": {
+        "date": {
+          "description": "Date on which the demand forecast was generated.",
+          "type": "date",
+          "example_values": ["2025-12-31"]
+        },
+        "raw_material": {
+          "description": "Raw material identifier.",
+          "type": "string",
+          "semantic_role": "raw_material_identifier",
+          "matching_rule": "Use case-insensitive partial match",
+          "sql_rule_sqlite": "LOWER(raw_material) LIKE '%value%'",
+          "example_values": ["EVA_Foam", "Leather_FG"]
+        },
+        "material_type": {
+          "description": "Type/category of the raw material.",
+          "type": "string",
+          "example_values": ["Rubber", "Leather"],
+          "allowed_values": ["Leather", "Rubber", "Textile", "Metal"]
+        },
+        "forecast_horizon": {
+          "description": "Forecast horizon indicating the time period. Format: '30day'",
+          "type": "string",
+          "example_values": ["30day"],
+          "allowed_values": ["30day"]
+        },
+        "material_demand_units": {
+          "description": "Forecasted demand for raw material in units.",
+          "type": "integer",
+          "aggregation_rule": "SUM"
+        }
+      }
+    },
+    "sku_product_demand": {
+      "description": "Forecasted product demand at SKU-store level. Links SKU, product, store, and forecast horizon. Use this with product_bom to calculate raw material requirements.",
+      "writable": false,
+      "columns": {
+        "date": {
+          "description": "Date on which the demand forecast was generated.",
+          "type": "date",
+          "example_values": ["2025-12-31"]
+        },
+        "sku_id": {
+          "description": "SKU identifier. Format: WL-SKU-XXX. Join with sku_master.",
+          "type": "string",
+          "semantic_role": "product_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["WL-SKU-001", "WL-SKU-002"]
+        },
+        "store_id": {
+          "description": "Store identifier. Format: Store_XX",
+          "type": "string",
+          "semantic_role": "store_identifier",
+          "matching_rule": "Use case-insensitive partial match",
+          "sql_rule_sqlite": "LOWER(store_id) LIKE '%value%'",
+          "example_values": ["Store_01", "Store_02"]
+        },
+        "product_id": {
+          "description": "Product identifier. Format: WL-PROD-XXX. Join with product_bom to get raw material requirements.",
+          "type": "string",
+          "semantic_role": "product_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["WL-PROD-101", "WL-PROD-102"]
+        },
+        "forecast_horizon": {
+          "description": "Forecast horizon. Format: '7day'",
+          "type": "string",
+          "example_values": ["7day"],
+          "allowed_values": ["7day"]
+        },
+        "product_units": {
+          "description": "Forecasted product demand in units.",
+          "type": "integer",
+          "aggregation_rule": "SUM"
+        }
+      }
+    },
+    "sku_forecast": {
+      "description": "SKU-level forecasts with start and end dates. Provides forecasted units for a date range at SKU-store level.",
+      "writable": false,
+      "columns": {
+        "forecast_start_date": {
+          "description": "Start date of the forecast period.",
+          "type": "date",
+          "semantic_role": "forecast_start",
+          "example_values": ["2025-12-31"]
+        },
+        "forecast_end_date": {
+          "description": "End date of the forecast period.",
+          "type": "date",
+          "semantic_role": "forecast_end",
+          "example_values": ["2026-01-29"]
+        },
+        "sku_id": {
+          "description": "SKU identifier. Format: WL-SKU-XXX",
+          "type": "string",
+          "semantic_role": "product_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["WL-SKU-001", "WL-SKU-002"]
+        },
+        "store_id": {
+          "description": "Store identifier. Format: Store_XX",
+          "type": "string",
+          "semantic_role": "store_identifier",
+          "matching_rule": "Use case-insensitive partial match",
+          "sql_rule_sqlite": "LOWER(store_id) LIKE '%value%'",
+          "example_values": ["Store_01", "Store_02"]
+        },
+        "forecast_horizon_days": {
+          "description": "Forecast horizon in days (e.g., 30 for 30-day forecast).",
+          "type": "integer",
+          "example_values": [30]
+        },
+        "forecast_units": {
+          "description": "Total forecasted units for the forecast period.",
+          "type": "integer",
+          "aggregation_rule": "SUM"
+        }
+      }
+    }
+  }
+}
