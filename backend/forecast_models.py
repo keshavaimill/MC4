@@ -108,18 +108,30 @@ class MC4ForecastModel:
         os.makedirs(model_dir, exist_ok=True)
         self.models = {}
     
+    # def prepare_data(self, df, sku_id=None):
+    #     """Prepare data for Prophet"""
+    #     if sku_id:
+    #         df = df[df["sku_id"] == sku_id].copy()
+        
+    #     # Aggregate by date
+    #     df_agg = df.groupby("date")["forecast_tons"].sum().reset_index()
+    #     df_agg["date"] = pd.to_datetime(df_agg["date"])
+    #     df_agg = df_agg.sort_values("date")
+    #     df_agg.columns = ["ds", "y"]
+        
+    #     return df_agg
     def prepare_data(self, df, sku_id=None):
-        """Prepare data for Prophet"""
         if sku_id:
             df = df[df["sku_id"] == sku_id].copy()
-        
-        # Aggregate by date
-        df_agg = df.groupby("date")["forecast_tons"].sum().reset_index()
-        df_agg["date"] = pd.to_datetime(df_agg["date"])
-        df_agg = df_agg.sort_values("date")
-        df_agg.columns = ["ds", "y"]
-        
-        return df_agg
+
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.sort_values("date")
+
+        df_prep = df[["date", "forecast_tons"]].copy()
+        df_prep.columns = ["ds", "y"]
+
+        return df_prep
+
     
     def train_model(self, df, sku_id, include_holidays=True):
         """Train forecasting model for a specific SKU"""
@@ -148,7 +160,7 @@ class MC4ForecastModel:
     
     def _train_prophet(self, df_prep, include_holidays=True):
         """Train Prophet model"""
-        # Create Prophet model
+
         model = Prophet(
             yearly_seasonality=True,
             weekly_seasonality=True,
@@ -156,41 +168,16 @@ class MC4ForecastModel:
             seasonality_mode='multiplicative',
             changepoint_prior_scale=0.05
         )
-        
-        # Add Arabian holidays if requested
-        if include_holidays:
-            # Ramadan (approximate - shifts each year)
-            ramadan_holidays = pd.DataFrame({
-                'holiday': 'ramadan',
-                'ds': pd.date_range('2020-01-01', '2027-12-31', freq='D'),
-                'lower_window': 0,
-                'upper_window': 29
-            })
-            # Filter to actual Ramadan periods (simplified)
-            ramadan_holidays = ramadan_holidays[
-                (ramadan_holidays['ds'].dt.month == 4) | 
-                (ramadan_holidays['ds'].dt.month == 3)
-            ]
-            
-            # Hajj
-            hajj_holidays = pd.DataFrame({
-                'holiday': 'hajj',
-                'ds': pd.date_range('2020-01-01', '2027-12-31', freq='D'),
-                'lower_window': 0,
-                'upper_window': 5
-            })
-            hajj_holidays = hajj_holidays[
-                (hajj_holidays['ds'].dt.month == 7) | 
-                (hajj_holidays['ds'].dt.month == 6)
-            ]
-            
-            holidays = pd.concat([ramadan_holidays, hajj_holidays])
-            model.holidays = holidays
-        
+
+        # Use real Ramadan / Hajj days from time_dimension.csv (loaded in train_and_save_models)
+        if include_holidays and hasattr(self, "holidays_df") and self.holidays_df is not None:
+            model.holidays = self.holidays_df
+
         # Fit model
         model.fit(df_prep)
-        
+
         return model
+
     
     def _train_statsmodels(self, df_prep):
         """Train statsmodels ExponentialSmoothing model"""
@@ -331,27 +318,60 @@ class MC4ForecastModel:
             return pd.concat(all_forecasts, ignore_index=True)
         return pd.DataFrame()
 
-def train_and_save_models(data_path="datasets/sku_forecast.csv", model_dir="models"):
-    """Train all models from historical data"""
+def train_and_save_models(
+    data_path="datasets/sku_forecast.csv",
+    time_dim_path="datasets/time_dimension.csv",
+    model_dir="models"
+):
+    """Train all models from historical data with proper Arabian holiday handling"""
+
     print("📊 Loading historical data...")
     df = pd.read_csv(data_path)
     df["date"] = pd.to_datetime(df["date"])
-    
+
     # Filter to historical data only (before today for training)
     today = datetime.now()
     df_train = df[df["date"] < today].copy()
-    
+
     if len(df_train) == 0:
         raise ValueError("No historical data found for training")
-    
+
     print(f"📈 Training on {len(df_train)} records from {df_train['date'].min()} to {df_train['date'].max()}")
-    
+
+    # -------------------------------------------------
+    # Load time dimension for real Ramadan / Hajj flags
+    # -------------------------------------------------
+    holidays_df = None
+    if os.path.exists(time_dim_path):
+        print("📅 Loading time dimension for holiday signals...")
+        time_dim = pd.read_csv(time_dim_path)
+        time_dim["date"] = pd.to_datetime(time_dim["date"])
+
+        ramadan_days = time_dim[time_dim["is_ramadan"] == True][["date"]].copy()
+        ramadan_days["holiday"] = "ramadan"
+
+        hajj_days = time_dim[time_dim["is_hajj"] == True][["date"]].copy()
+        hajj_days["holiday"] = "hajj"
+
+        holidays_df = pd.concat([ramadan_days, hajj_days], ignore_index=True)
+        holidays_df.rename(columns={"date": "ds"}, inplace=True)
+
+        print(f"✅ Holidays loaded: Ramadan={len(ramadan_days)} days, Hajj={len(hajj_days)} days")
+
+    else:
+        print(f"⚠️ time_dimension.csv not found at {time_dim_path}. Training without holiday signals.")
+
     # Train models
     forecaster = MC4ForecastModel(model_dir=model_dir)
+
+    # Attach holidays into forecaster so Prophet can use them
+    forecaster.holidays_df = holidays_df
+
     sku_list = df_train["sku_id"].unique()
     forecaster.train_all_skus(df_train, sku_list)
-    
+
     return forecaster
+
 
 if __name__ == "__main__":
     # Train models

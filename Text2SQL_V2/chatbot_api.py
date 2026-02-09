@@ -204,15 +204,15 @@
 
 
 import json, os
-from Text2SQL_V2.core.db_builder import build_database, execute_sql
-from Text2SQL_V2.core.schema_loader import SchemaLoader
-from Text2SQL_V2.agents.text2sql_agent import Text2SQLAgent
-from Text2SQL_V2.agents.summarizer_agent import SummarizerAgent
-from Text2SQL_V2.utils.intent import wants_chart
-from Text2SQL_V2.utils.persist import persist_order_log
+from core.db_builder import build_database, execute_sql
+from core.schema_loader import SchemaLoader
+from agents.text2sql_agent import Text2SQLAgent
+from agents.summarizer_agent import SummarizerAgent
+from utils.intent import wants_chart
+from utils.persist import persist_order_log
 import os
-from Text2SQL_V2.mailer import send_success_email
-from Text2SQL_V2.summary_generator import generate_llm_summary
+from mailer import send_success_email
+from summary_generator import generate_llm_summary
 import logging
 import matplotlib
 matplotlib.use("Agg")  # ✅ MUST be before pyplot
@@ -267,20 +267,8 @@ schema = [
         "path": os.path.join(DATASETS_DIR, "recipe_master.csv"),
     },
     {
-        "table_name": "recipe_time",
-        "path": os.path.join(DATASETS_DIR, "recipe_time.csv"),
-    },
-    {
-        "table_name": "recipe_time_weekly",
-        "path": os.path.join(DATASETS_DIR, "recipe_time_weekly.csv"),
-    },
-    {
-        "table_name": "recipe_time_monthly",
-        "path": os.path.join(DATASETS_DIR, "recipe_time_monthly.csv"),
-    },
-    {
-        "table_name": "recipe_time_yearly",
-        "path": os.path.join(DATASETS_DIR, "recipe_time_yearly.csv"),
+        "table_name": "recipe_eligibility",
+        "path": os.path.join(DATASETS_DIR, "recipe_eligibility.csv"),
     },
     {
         "table_name": "mill_master",
@@ -291,16 +279,40 @@ schema = [
         "path": os.path.join(DATASETS_DIR, "mill_load.csv"),
     },
     {
+        "table_name": "mill_load_weekly",
+        "path": os.path.join(DATASETS_DIR, "mill_load_weekly.csv"),
+    },
+    {
+        "table_name": "mill_load_monthly",
+        "path": os.path.join(DATASETS_DIR, "mill_load_monthly.csv"),
+    },
+    {
+        "table_name": "mill_load_yearly",
+        "path": os.path.join(DATASETS_DIR, "mill_load_yearly.csv"),
+    },
+    {
         "table_name": "mill_capacity",
         "path": os.path.join(DATASETS_DIR, "mill_capacity.csv"),
     },
     {
-        "table_name": "flour_demand",
-        "path": os.path.join(DATASETS_DIR, "flour_demand.csv"),
+        "table_name": "mill_recipe_schedule",
+        "path": os.path.join(DATASETS_DIR, "mill_recipe_schedule.csv"),
     },
     {
-        "table_name": "recipe_allocation",
-        "path": os.path.join(DATASETS_DIR, "recipe_allocation.csv"),
+        "table_name": "mill_recipe_rates",
+        "path": os.path.join(DATASETS_DIR, "mill_recipe_rates.csv"),
+    },
+    {
+        "table_name": "bulk_flour_demand",
+        "path": os.path.join(DATASETS_DIR, "bulk_flour_demand.csv"),
+    },
+    {
+        "table_name": "recipe_demand",
+        "path": os.path.join(DATASETS_DIR, "recipe_demand.csv"),
+    },
+    {
+        "table_name": "recipe_mix",
+        "path": os.path.join(DATASETS_DIR, "recipe_mix.csv"),
     },
     {
         "table_name": "raw_material",

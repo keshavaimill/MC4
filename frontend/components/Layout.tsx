@@ -47,7 +47,6 @@ export default function Layout({
   setScenario,
 }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [chatbotOpen, setChatbotOpen] = useState(false);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -148,14 +147,6 @@ export default function Layout({
           </div>
 
           <div className="flex items-center space-x-4">
-            <button
-              onClick={() => setChatbotOpen(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-mc4-blue text-white rounded-lg hover:bg-mc4-dark transition-colors"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span className="text-sm font-medium">Ask AI</span>
-            </button>
-            
             <div className="flex items-center space-x-2">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
               <span className="text-sm text-gray-600">System Online</span>
@@ -184,10 +175,8 @@ export default function Layout({
         </footer>
       </div>
 
-      {/* Chatbot */}
-      {chatbotOpen && (
-        <Chatbot onClose={() => setChatbotOpen(false)} />
-      )}
+      {/* Floating Chatbot */}
+      <Chatbot />
     </div>
   );
 }

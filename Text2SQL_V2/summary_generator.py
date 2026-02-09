@@ -164,8 +164,8 @@
 
 import json
 import re
-from Text2SQL_V2.config import config
-from Text2SQL_V2.utils.llm_factory import load_llm
+from config import config
+from utils.llm_factory import load_llm
 import logging
 
 def setup_logger():

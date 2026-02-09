@@ -46,7 +46,7 @@
 #         """
 #         return self.generate_sql(question)
 
-from Text2SQL_V2.utils.llm_factory import load_llm
+from utils.llm_factory import load_llm
 from langchain_core.prompts import PromptTemplate
 
 

@@ -67,34 +67,41 @@ export default function MillCapacity({ horizon }: MillCapacityProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {capacityData.map((item, idx) => (
-                <tr key={idx} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.mill_name}</td>
-                  <td className="px-4 py-3 text-sm text-right">{item.available_hours.toFixed(0)}</td>
-                  <td className="px-4 py-3 text-sm text-right font-medium">{item.required_hours.toFixed(0)}</td>
-                  <td className={`px-4 py-3 text-sm text-right font-medium ${
-                    item.overload_hours > 0 ? 'text-red-600' : 'text-green-600'
-                  }`}>
-                    {item.overload_hours > 0 ? `-${item.overload_hours.toFixed(0)}` : `+${(item.available_hours - item.required_hours).toFixed(0)}`}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right">
-                    <span className={`font-medium ${
-                      item.utilization_pct > 100 ? 'text-red-600' : 
-                      item.utilization_pct > 90 ? 'text-yellow-600' : 
-                      'text-green-600'
+              {capacityData.map((item, idx) => {
+                const availableHours = item.available_hours ?? 0;
+                const scheduledHours = item.scheduled_hours ?? 0;
+                const overloadHours = item.overload_hours ?? 0;
+                const utilizationPct = item.utilization_pct ?? 0;
+                
+                return (
+                  <tr key={idx} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.mill_name || 'N/A'}</td>
+                    <td className="px-4 py-3 text-sm text-right">{availableHours.toFixed(0)}</td>
+                    <td className="px-4 py-3 text-sm text-right font-medium">{scheduledHours.toFixed(0)}</td>
+                    <td className={`px-4 py-3 text-sm text-right font-medium ${
+                      overloadHours > 0 ? 'text-red-600' : 'text-green-600'
                     }`}>
-                      {item.utilization_pct.toFixed(1)}%
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {item.overload_hours > 0 ? (
-                      <AlertTriangle className="w-5 h-5 text-red-500 mx-auto" />
-                    ) : (
-                      <CheckCircle className="w-5 h-5 text-green-500 mx-auto" />
-                    )}
-                  </td>
-                </tr>
-              ))}
+                      {overloadHours > 0 ? `-${overloadHours.toFixed(0)}` : `+${(availableHours - scheduledHours).toFixed(0)}`}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right">
+                      <span className={`font-medium ${
+                        utilizationPct > 100 ? 'text-red-600' : 
+                        utilizationPct > 90 ? 'text-yellow-600' : 
+                        'text-green-600'
+                      }`}>
+                        {utilizationPct.toFixed(1)}%
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {overloadHours > 0 ? (
+                        <AlertTriangle className="w-5 h-5 text-red-500 mx-auto" />
+                      ) : (
+                        <CheckCircle className="w-5 h-5 text-green-500 mx-auto" />
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -117,7 +124,7 @@ export default function MillCapacity({ horizon }: MillCapacityProps) {
                 <Tooltip />
                 <Legend />
                 <Bar dataKey="available_hours" fill="#cbd5e1" name="Available Hours" />
-                <Bar dataKey="required_hours" fill="#0ea5e9" name="Required Hours" />
+                <Bar dataKey="scheduled_hours" fill="#0ea5e9" name="Planned Hours" />
               </BarChart>
             </ResponsiveContainer>
           </div>

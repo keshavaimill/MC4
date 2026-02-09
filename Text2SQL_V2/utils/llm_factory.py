@@ -1,4 +1,4 @@
-from Text2SQL_V2.config import config
+from config import config
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 

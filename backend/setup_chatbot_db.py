@@ -38,20 +38,8 @@ MC4_SCHEMA = [
         "path": os.path.join(datasets_dir, "recipe_master.csv"),
     },
     {
-        "table_name": "recipe_time",
-        "path": os.path.join(datasets_dir, "recipe_time.csv"),
-    },
-    {
-        "table_name": "recipe_time_weekly",
-        "path": os.path.join(datasets_dir, "recipe_time_weekly.csv"),
-    },
-    {
-        "table_name": "recipe_time_monthly",
-        "path": os.path.join(datasets_dir, "recipe_time_monthly.csv"),
-    },
-    {
-        "table_name": "recipe_time_yearly",
-        "path": os.path.join(datasets_dir, "recipe_time_yearly.csv"),
+        "table_name": "recipe_eligibility",
+        "path": os.path.join(datasets_dir, "recipe_eligibility.csv"),
     },
     {
         "table_name": "mill_master",
@@ -62,16 +50,40 @@ MC4_SCHEMA = [
         "path": os.path.join(datasets_dir, "mill_load.csv"),
     },
     {
+        "table_name": "mill_load_weekly",
+        "path": os.path.join(datasets_dir, "mill_load_weekly.csv"),
+    },
+    {
+        "table_name": "mill_load_monthly",
+        "path": os.path.join(datasets_dir, "mill_load_monthly.csv"),
+    },
+    {
+        "table_name": "mill_load_yearly",
+        "path": os.path.join(datasets_dir, "mill_load_yearly.csv"),
+    },
+    {
         "table_name": "mill_capacity",
         "path": os.path.join(datasets_dir, "mill_capacity.csv"),
     },
     {
-        "table_name": "flour_demand",
-        "path": os.path.join(datasets_dir, "flour_demand.csv"),
+        "table_name": "mill_recipe_schedule",
+        "path": os.path.join(datasets_dir, "mill_recipe_schedule.csv"),
     },
     {
-        "table_name": "recipe_allocation",
-        "path": os.path.join(datasets_dir, "recipe_allocation.csv"),
+        "table_name": "mill_recipe_rates",
+        "path": os.path.join(datasets_dir, "mill_recipe_rates.csv"),
+    },
+    {
+        "table_name": "bulk_flour_demand",
+        "path": os.path.join(datasets_dir, "bulk_flour_demand.csv"),
+    },
+    {
+        "table_name": "recipe_demand",
+        "path": os.path.join(datasets_dir, "recipe_demand.csv"),
+    },
+    {
+        "table_name": "recipe_mix",
+        "path": os.path.join(datasets_dir, "recipe_mix.csv"),
     },
     {
         "table_name": "raw_material",

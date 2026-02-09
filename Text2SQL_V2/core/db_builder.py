@@ -1,4 +1,4 @@
-from Text2SQL_V2.utils.persist import persist_order_log
+from utils.persist import persist_order_log
 import sqlite3
 import pandas as pd
 
@@ -63,47 +63,89 @@ def build_database(schema_list, db_path="local.db"):
 
 
 
-def execute_sql(db_path, sql):
+# def execute_sql(db_path, sql):
+#     conn = sqlite3.connect(db_path)
+#     cur = conn.cursor()
+
+#     sql_clean = sql.strip().lower()
+
+#     try:
+#         # --------------------
+#         # READ queries
+#         # --------------------
+#         if sql_clean.startswith("select"):
+#             df = pd.read_sql_query(sql, conn)
+#             conn.close()
+#             return df
+
+#         # --------------------
+#         # INSERT (allowed tables)
+#         # --------------------
+#         if sql_clean.startswith("insert"):
+#             if (
+#                 "into order_log" not in sql_clean
+#                 and "into raw_material_log" not in sql_clean
+#             ):
+#                 raise RuntimeError(
+#                     "INSERT is only allowed on order_log or raw_material_log tables"
+#                 )
+
+#             cur.execute(sql)
+#             conn.commit()
+#             rows_affected = cur.rowcount
+#             conn.close()
+#             return rows_affected
+
+
+#         # --------------------
+#         # BLOCK everything else
+#         # --------------------
+#         raise RuntimeError(
+#             "Only SELECT queries and INSERT into order_log or raw_material_log are allowed"
+#         )
+
+
+#     except Exception as e:
+#         conn.close()
+#         raise RuntimeError(f"SQL execution failed: {e}")
+
+def execute_sql(db_path, sql: str):
+    """
+    READ-ONLY SQL executor.
+    Allows:
+      - SELECT
+      - PRAGMA (schema inspection)
+    Blocks everything else.
+    Handles multi-statement SQL safely.
+    """
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
-    sql_clean = sql.strip().lower()
-
     try:
-        # --------------------
-        # READ queries
-        # --------------------
-        if sql_clean.startswith("select"):
-            df = pd.read_sql_query(sql, conn)
-            conn.close()
-            return df
+        statements = [s.strip() for s in sql.split(";") if s.strip()]
+        last_df = None
 
-        # --------------------
-        # INSERT (allowed tables)
-        # --------------------
-        if sql_clean.startswith("insert"):
-            if (
-                "into order_log" not in sql_clean
-                and "into raw_material_log" not in sql_clean
-            ):
+        for stmt in statements:
+            stmt_clean = stmt.lower().strip()
+
+            # ✅ Allow SELECT and PRAGMA only
+            if stmt_clean.startswith(("select", "pragma")):
+                cur.execute(stmt)
+
+                # Only SELECT returns tabular data
+                if cur.description:
+                    cols = [c[0] for c in cur.description]
+                    rows = cur.fetchall()
+                    last_df = pd.DataFrame(rows, columns=cols)
+
+            # ❌ Block everything else
+            else:
                 raise RuntimeError(
-                    "INSERT is only allowed on order_log or raw_material_log tables"
+                    f"Blocked SQL statement: {stmt_clean.split()[0].upper()}"
                 )
 
-            cur.execute(sql)
-            conn.commit()
-            rows_affected = cur.rowcount
-            conn.close()
-            return rows_affected
-
-
-        # --------------------
-        # BLOCK everything else
-        # --------------------
-        raise RuntimeError(
-            "Only SELECT queries and INSERT into order_log or raw_material_log are allowed"
-        )
-
+        conn.close()
+        return last_df if last_df is not None else pd.DataFrame()
 
     except Exception as e:
         conn.close()

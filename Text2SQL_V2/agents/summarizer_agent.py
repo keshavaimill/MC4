@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import base64
 from io import BytesIO
-from Text2SQL_V2.utils.llm_factory import load_llm
+from utils.llm_factory import load_llm
 
 class SummarizerAgent:
     def __init__(self):
