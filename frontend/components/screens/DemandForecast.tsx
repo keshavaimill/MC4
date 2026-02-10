@@ -3,16 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { getPeriodFromDate } from '@/lib/period';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 
 const CHART_COLORS = ['#B85C38', '#6e6e73', '#86868b', '#aeaeae'];
 
@@ -98,20 +89,69 @@ export default function DemandForecast({ horizon, fromDate, toDate }: DemandFore
         {chartArray.length === 0 ? (
           <div className="flex items-center justify-center h-64 text-ink-tertiary text-sm">No forecast data</div>
         ) : (
-          <div className="w-full h-[400px]">
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={chartArray}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e7" />
-                <XAxis dataKey="period" stroke="#86868b" fontSize={12} />
-                <YAxis stroke="#86868b" fontSize={12} />
-                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e5e5e7' }} />
-                <Legend />
-                <Line type="monotone" dataKey="Superior" stroke="#B85C38" strokeWidth={2} dot={{ fill: '#B85C38' }} />
-                <Line type="monotone" dataKey="Bakery" stroke={CHART_COLORS[1]} strokeWidth={2} dot={{ fill: CHART_COLORS[1] }} />
-                <Line type="monotone" dataKey="Patent" stroke={CHART_COLORS[2]} strokeWidth={2} dot={{ fill: CHART_COLORS[2] }} />
-                <Line type="monotone" dataKey="Brown" stroke={CHART_COLORS[3]} strokeWidth={2} dot={{ fill: CHART_COLORS[3] }} />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="w-full overflow-x-auto">
+            <LineChart
+              data={chartArray}
+              width={700}
+              height={400}
+              margin={{ top: 16, right: 24, left: 16, bottom: 40 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e7" />
+              <XAxis
+                dataKey="period"
+                stroke="#6e6e73"
+                fontSize={12}
+                tick={{ fill: '#6e6e73' }}
+              />
+              <YAxis
+                stroke="#6e6e73"
+                fontSize={12}
+                tick={{ fill: '#6e6e73' }}
+                label={{
+                  value: 'Forecast (tons)',
+                  angle: -90,
+                  position: 'insideLeft',
+                  fill: '#6e6e73',
+                  style: { fontSize: 11 },
+                }}
+              />
+              <Tooltip
+                contentStyle={{
+                  borderRadius: 12,
+                  border: '1px solid #e5e5e7',
+                  background: '#ffffff',
+                }}
+              />
+              <Legend wrapperStyle={{ fontSize: 12, color: '#6e6e73' }} />
+              <Line
+                type="monotone"
+                dataKey="Superior"
+                stroke="#B85C38"
+                strokeWidth={2}
+                dot={{ fill: '#B85C38' }}
+              />
+              <Line
+                type="monotone"
+                dataKey="Bakery"
+                stroke={CHART_COLORS[1]}
+                strokeWidth={2}
+                dot={{ fill: CHART_COLORS[1] }}
+              />
+              <Line
+                type="monotone"
+                dataKey="Patent"
+                stroke={CHART_COLORS[2]}
+                strokeWidth={2}
+                dot={{ fill: CHART_COLORS[2] }}
+              />
+              <Line
+                type="monotone"
+                dataKey="Brown"
+                stroke={CHART_COLORS[3]}
+                strokeWidth={2}
+                dot={{ fill: CHART_COLORS[3] }}
+              />
+            </LineChart>
           </div>
         )}
       </div>

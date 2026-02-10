@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { getPeriodFromDate } from '@/lib/period';
+import { Globe2, Activity } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 
 const CHART_COLORS = ['#B85C38', '#6e6e73', '#86868b', '#aeaeae', '#d1d1d6'];
@@ -70,7 +71,10 @@ export default function RawMaterials({ horizon, fromDate, toDate }: RawMaterials
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 rounded-full border-2 border-ink/20 border-t-ink animate-spin" />
+        <div className="relative">
+          <div className="h-12 w-12 rounded-full border-4 border-border border-t-brand animate-spin" />
+          <Activity className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 text-brand animate-pulse" />
+        </div>
       </div>
     );
   }
@@ -83,7 +87,17 @@ export default function RawMaterials({ horizon, fromDate, toDate }: RawMaterials
       </div>
 
       <div className="apple-card p-6">
-        <h2 className="text-base font-semibold text-ink mb-4">Wheat Price by Country</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-brand-muted flex items-center justify-center">
+              <Globe2 className="w-5 h-5 text-brand" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-ink">Wheat Price by Country</h2>
+              <p className="text-sm text-ink-secondary">Benchmark prices per country for the selected period</p>
+            </div>
+          </div>
+        </div>
         {chartData.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[280px] rounded-xl bg-surface-hover/80 border-2 border-dashed border-border p-6 text-center">
             <p className="text-ink font-medium">No wheat price data for this period</p>
@@ -95,12 +109,34 @@ export default function RawMaterials({ horizon, fromDate, toDate }: RawMaterials
           <div className="flex items-center justify-center h-[400px] text-ink-secondary text-sm">Loading chart…</div>
         ) : chartData.length >= 2 ? (
           <div className="w-full overflow-x-auto">
-            <LineChart data={chartData} width={700} height={400} margin={{ top: 16, right: 24, left: 16, bottom: 24 }}>
+            <LineChart
+              data={chartData}
+              width={700}
+              height={400}
+              margin={{ top: 16, right: 24, left: 16, bottom: 40 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e7" />
               <XAxis dataKey="period" stroke="#6e6e73" fontSize={12} tick={{ fill: '#6e6e73' }} />
-              <YAxis stroke="#6e6e73" fontSize={12} tick={{ fill: '#6e6e73' }} />
-              <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e5e5e7', background: '#fff' }} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <YAxis
+                stroke="#6e6e73"
+                fontSize={12}
+                tick={{ fill: '#6e6e73' }}
+                label={{
+                  value: 'Price (SAR/ton)',
+                  angle: -90,
+                  position: 'insideLeft',
+                  fill: '#6e6e73',
+                  style: { fontSize: 11 },
+                }}
+              />
+              <Tooltip
+                contentStyle={{
+                  borderRadius: 12,
+                  border: '1px solid #e5e5e7',
+                  background: '#ffffff',
+                }}
+              />
+              <Legend wrapperStyle={{ fontSize: 12, color: '#6e6e73' }} />
               {countries.map((country, idx) => (
                 <Line
                   key={country}
@@ -116,12 +152,48 @@ export default function RawMaterials({ horizon, fromDate, toDate }: RawMaterials
           </div>
         ) : barDataByCountry.length > 0 ? (
           <div className="w-full overflow-x-auto">
-            <BarChart data={barDataByCountry} width={700} height={400} margin={{ top: 16, right: 24, left: 16, bottom: 80 }}>
+            <BarChart
+              data={barDataByCountry}
+              width={700}
+              height={400}
+              margin={{ top: 16, right: 24, left: 16, bottom: 80 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e7" />
-              <XAxis dataKey="country" angle={-25} textAnchor="end" height={80} stroke="#6e6e73" fontSize={11} tick={{ fill: '#6e6e73' }} />
-              <YAxis stroke="#6e6e73" fontSize={12} tick={{ fill: '#6e6e73' }} label={{ value: 'Price (SAR/ton)', angle: -90, position: 'insideLeft', fill: '#6e6e73', style: { fontSize: 11 } }} />
-              <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e5e5e7', background: '#fff' }} />
-              <Bar dataKey="price" fill="#B85C38" name="Wheat price (SAR/ton)" radius={[4, 4, 0, 0]} maxBarSize={72} />
+              <XAxis
+                dataKey="country"
+                angle={-25}
+                textAnchor="end"
+                height={80}
+                stroke="#6e6e73"
+                fontSize={11}
+                tick={{ fill: '#6e6e73' }}
+              />
+              <YAxis
+                stroke="#6e6e73"
+                fontSize={12}
+                tick={{ fill: '#6e6e73' }}
+                label={{
+                  value: 'Price (SAR/ton)',
+                  angle: -90,
+                  position: 'insideLeft',
+                  fill: '#6e6e73',
+                  style: { fontSize: 11 },
+                }}
+              />
+              <Tooltip
+                contentStyle={{
+                  borderRadius: 12,
+                  border: '1px solid #e5e5e7',
+                  background: '#ffffff',
+                }}
+              />
+              <Bar
+                dataKey="price"
+                fill="#B85C38"
+                name="Wheat price (SAR/ton)"
+                radius={[4, 4, 0, 0]}
+                maxBarSize={72}
+              />
             </BarChart>
           </div>
         ) : (
@@ -130,8 +202,13 @@ export default function RawMaterials({ horizon, fromDate, toDate }: RawMaterials
       </div>
 
       <div className="apple-card overflow-hidden">
-        <div className="p-4 border-b border-border-soft">
-          <h2 className="text-base font-semibold text-ink">Current Prices</h2>
+        <div className="p-4 border-b border-border-soft flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-ink">Current Prices</h2>
+            <p className="text-xs text-ink-tertiary mt-0.5">
+              Latest wheat prices and availability by country
+            </p>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
