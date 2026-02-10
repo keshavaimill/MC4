@@ -9,6 +9,16 @@ returns pre-computed KPIs.  Data endpoints (/api/forecast/sku, etc.)
 join dim/map/fact tables to produce the flat shapes the frontend expects.
 """
 
+import os
+import sys
+
+# Load .env from backend directory first (so GOOGLE_API_KEY etc. are set before Text2SQL imports)
+_backend_dir = os.path.dirname(os.path.abspath(__file__))
+_env_path = os.path.join(_backend_dir, ".env")
+if os.path.exists(_env_path):
+    from dotenv import load_dotenv
+    load_dotenv(_env_path)
+
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -17,6 +27,7 @@ from typing import Optional
 import pandas as pd
 import numpy as np
 from datetime import datetime
+<<<<<<< HEAD
 import os
 import sys
 import io
@@ -37,15 +48,27 @@ parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
+=======
+
+# Add parent directory to path for Text2SQL import
+parent_dir = os.path.dirname(_backend_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+# Import Text2SQL chatbot (optional: if API key missing or import fails, server still starts; chatbot returns 503)
+run_chatbot_query = None
+CHATBOT_AVAILABLE = False
+>>>>>>> 2f1e83327ddcd0d6bef26f4e2cb18733924d07db
 try:
     text2sql_path = os.path.join(parent_dir, "Text2SQL_V2")
     if text2sql_path not in sys.path:
         sys.path.insert(0, text2sql_path)
-    from chatbot_api import run_chatbot_query
+    from chatbot_api import run_chatbot_query as _run_chatbot_query
+    run_chatbot_query = _run_chatbot_query
     CHATBOT_AVAILABLE = True
-except ImportError as e:
+except Exception as e:
     print(f"⚠️ Text2SQL chatbot not available: {e}")
-    CHATBOT_AVAILABLE = False
+    print("   Set GOOGLE_API_KEY (or OPENAI_API_KEY) in backend/.env to enable the chatbot. Other API endpoints will work.")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 app = FastAPI(title="MC4 Forecasting API", version="3.0.0")
@@ -310,10 +333,47 @@ async def get_executive_kpis(
             if not v2030_rows.empty:
                 prev_v = v2030_rows.sort_values("period").iloc[-2]["value"] if len(v2030_rows) > 1 else v2030
             else:
+<<<<<<< HEAD
                 prev_v = v2030
         else:
             prev_v = v2030
         v2030_delta = round(v2030 - float(prev_v), 1)
+=======
+                mill_load["period"] = mill_load["date"].dt.year.astype(str)
+
+            period_load = mill_load[mill_load["period"] == period]
+
+            required_hours = period_load["scheduled_hours"].sum()
+            total_available = period_load["available_hours"].sum()
+
+            utilization = (required_hours / total_available * 100) if total_available > 0 else 0
+            overloaded = period_load.loc[period_load["overload_hours"] > 0]
+            overload_mills = len(overloaded["mill_id"].unique()) if not overloaded.empty else 0
+
+        # -----------------------------
+        # Risk KPI (Wheat Price Avg)
+        # -----------------------------
+        raw_material = data_cache.get("raw_material", pd.DataFrame())
+        avg_price = 0
+        price_change = 0
+
+        if not raw_material.empty:
+            raw_material["date"] = pd.to_datetime(raw_material["date"])
+
+            if horizon == "week":
+                raw_material["period"] = (
+                    raw_material["date"].dt.isocalendar().year.astype(str)
+                    + "-W"
+                    + raw_material["date"].dt.isocalendar().week.astype(str).str.zfill(2)
+                )
+            elif horizon == "month":
+                raw_material["period"] = raw_material["date"].dt.to_period("M").astype(str)
+            else:
+                raw_material["period"] = raw_material["date"].dt.year.astype(str)
+
+            period_rm = raw_material[raw_material["period"] == period]
+            avg_price = period_rm["wheat_price_sar_per_ton"].mean() if not period_rm.empty else 0
+>>>>>>> 2f1e83327ddcd0d6bef26f4e2cb18733924d07db
 
         return {
             "demand": {"total_tons": round(current_demand, 2), "growth_pct": round(demand_growth, 2)},
