@@ -2,17 +2,18 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { 
-  LayoutDashboard, 
-  TrendingUp, 
-  Settings, 
-  Factory, 
-  Package, 
+import {
+  LayoutDashboard,
+  TrendingUp,
+  Settings,
+  Factory,
+  Package,
   AlertTriangle,
   FileText,
   Sparkles,
   Menu,
-  X
+  X,
+  Calendar,
 } from 'lucide-react';
 import Chatbot from './Chatbot';
 
@@ -20,10 +21,12 @@ interface LayoutProps {
   children: React.ReactNode;
   activeScreen: string;
   setActiveScreen: (screen: string) => void;
-  horizon: 'week' | 'month' | 'year';
-  setHorizon: (horizon: 'week' | 'month' | 'year') => void;
   scenario: string;
   setScenario: (scenario: string) => void;
+  fromDate: string;
+  setFromDate: (date: string) => void;
+  toDate: string;
+  setToDate: (date: string) => void;
 }
 
 const navigation = [
@@ -41,54 +44,48 @@ export default function Layout({
   children,
   activeScreen,
   setActiveScreen,
-  horizon,
-  setHorizon,
   scenario,
   setScenario,
+  fromDate,
+  setFromDate,
+  toDate,
+  setToDate,
 }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
+    <div className="flex h-screen bg-[#fafafa]">
+      {/* Sidebar - white, minimal */}
       <aside
         className={`${
           sidebarOpen ? 'w-64' : 'w-20'
-        } bg-white border-r border-gray-200 transition-all duration-300 flex flex-col`}
+        } bg-white border-r border-border-soft transition-all duration-300 ease-smooth flex flex-col shrink-0`}
       >
-        {/* Logo */}
-        <div className="h-16 border-b border-gray-200 flex items-center px-4">
+        <div className="h-16 border-b border-border-soft flex items-center px-4 transition-all duration-300">
           {sidebarOpen ? (
-            <div className="flex items-center space-x-3">
-              <div className="relative w-12 h-12 flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="relative w-10 h-10 shrink-0 rounded-xl overflow-hidden bg-brand-muted ring-1 ring-brand/20">
                 <Image
                   src="/logo/MC4_Logo.jpeg"
-                  alt="MC4 Logo"
+                  alt="MC4"
                   fill
                   className="object-contain"
                   priority
                 />
               </div>
               <div>
-                <h1 className="text-sm font-bold text-gray-900">MC4</h1>
-                <p className="text-xs text-gray-500">AI Command Center</p>
+                <h1 className="text-sm font-semibold text-ink">MC4</h1>
+                <p className="text-xs text-ink-tertiary">Command Center</p>
               </div>
             </div>
           ) : (
-            <div className="relative w-10 h-10 mx-auto flex-shrink-0">
-              <Image
-                src="/logo/MC4_Logo.jpeg"
-                alt="MC4 Logo"
-                fill
-                className="object-contain"
-                priority
-              />
+            <div className="relative w-9 h-9 mx-auto shrink-0 rounded-xl overflow-hidden bg-brand-muted ring-1 ring-brand/20">
+              <Image src="/logo/MC4_Logo.jpeg" alt="MC4" fill className="object-contain" priority />
             </div>
           )}
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+        <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
           {navigation.map((item) => {
             const Icon = item.icon;
             const isActive = activeScreen === item.id;
@@ -96,49 +93,62 @@ export default function Layout({
               <button
                 key={item.id}
                 onClick={() => setActiveScreen(item.id)}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                className={`apple-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left ${
                   isActive
-                    ? 'bg-mc4-blue text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
+                    ? 'bg-brand-muted text-brand-dark font-medium border-l-2 border-brand -ml-0.5 pl-3.5'
+                    : 'text-ink-secondary hover:bg-surface-hover hover:text-ink'
                 }`}
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                {sidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
+                <Icon className="w-5 h-5 shrink-0 opacity-80" />
+                {sidebarOpen && <span className="text-sm">{item.label}</span>}
               </button>
             );
           })}
         </nav>
       </aside>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Bar */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-          <div className="flex items-center space-x-4">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* Header - white, minimal */}
+        <header className="h-14 bg-white border-b border-border-soft flex items-center justify-between px-6 shrink-0">
+          <div className="flex items-center gap-4">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-lg hover:bg-gray-100"
+              className="apple-btn p-2 rounded-xl text-ink-secondary hover:bg-surface-hover hover:text-ink"
+              aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
             >
               {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
-            
-            <div className="flex items-center space-x-2">
-              <select
-                value={horizon}
-                onChange={(e) => setHorizon(e.target.value as 'week' | 'month' | 'year')}
-                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-mc4-blue"
-              >
-                <option value="week">Week</option>
-                <option value="month">Month</option>
-                <option value="year">Year</option>
-              </select>
-              
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 rounded-full border border-border bg-white pl-2.5 pr-1 py-1 focus-within:ring-2 focus-within:ring-brand/20 focus-within:border-brand/40">
+                <Calendar className="w-4 h-4 text-ink-tertiary shrink-0" aria-hidden />
+                <label className="sr-only" htmlFor="from-date">From</label>
+                <input
+                  id="from-date"
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  max={toDate}
+                  className="apple-btn w-[7.25rem] border-0 bg-transparent text-sm text-ink focus:outline-none focus:ring-0 py-1.5 [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                />
+                <span className="text-ink-tertiary text-sm font-medium">→</span>
+                <label className="sr-only" htmlFor="to-date">To</label>
+                <input
+                  id="to-date"
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  min={fromDate}
+                  className="apple-btn w-[7.25rem] border-0 bg-transparent text-sm text-ink focus:outline-none focus:ring-0 py-1.5 [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                />
+              </div>
               <select
                 value={scenario}
                 onChange={(e) => setScenario(e.target.value)}
-                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-mc4-blue"
+                className="apple-btn px-3 py-2 rounded-full border border-border bg-white text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand/40"
+                aria-label="Scenario"
               >
-                <option value="base">Base Scenario</option>
+                <option value="base">Base</option>
                 <option value="ramadan">Ramadan Peak</option>
                 <option value="optimistic">Optimistic</option>
                 <option value="pessimistic">Pessimistic</option>
@@ -146,36 +156,33 @@ export default function Layout({
             </div>
           </div>
 
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-sm text-gray-600">System Online</span>
-            </div>
+          <div className="flex items-center gap-2 text-ink-tertiary text-sm">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            System online
           </div>
         </header>
 
-        {/* Main Canvas */}
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
-          {children}
+        <main className="flex-1 overflow-y-auto bg-[#fafafa] p-6 md:p-8">
+          <div className="animate-in max-w-7xl mx-auto">
+            {children}
+          </div>
         </main>
 
-        {/* Explainability Footer */}
-        <footer className="h-12 bg-white border-t border-gray-200 flex items-center px-6">
-          <div className="flex items-center space-x-2 text-xs text-gray-500">
-            <span className="font-medium">ℹ How was this calculated?</span>
-            <span>•</span>
-            <span>SKU demand aggregated to flour</span>
-            <span>•</span>
-            <span>Flour split across eligible recipes</span>
-            <span>•</span>
-            <span>Recipe converted to mill time</span>
-            <span>•</span>
-            <span>Compared against available capacity</span>
+        <footer className="h-11 bg-white border-t border-border-soft flex items-center px-6 shrink-0">
+          <div className="flex items-center gap-2 text-xs text-ink-tertiary">
+            <span className="font-medium text-ink-secondary">How this is calculated</span>
+            <span>·</span>
+            <span>SKU demand → flour</span>
+            <span>·</span>
+            <span>Flour → recipes</span>
+            <span>·</span>
+            <span>Recipe → mill time</span>
+            <span>·</span>
+            <span>vs capacity</span>
           </div>
         </footer>
       </div>
 
-      {/* Floating Chatbot */}
       <Chatbot />
     </div>
   );

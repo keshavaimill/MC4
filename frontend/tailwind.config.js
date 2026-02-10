@@ -8,23 +8,36 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
+        /* Neutrals */
+        surface: '#ffffff',
+        'surface-hover': '#f5f5f7',
+        ink: '#1d1d1f',
+        'ink-secondary': '#6e6e73',
+        'ink-tertiary': '#86868b',
+        border: '#e5e5e7',
+        'border-soft': '#f0f0f2',
+        /* MC4 logo: warm brown / burnt orange + dark brown */
+        brand: {
+          DEFAULT: '#B85C38',
+          dark: '#8B4513',
+          light: '#D4845C',
+          muted: '#F5EDE8',
         },
-        mc4: {
-          blue: '#0ea5e9',
-          dark: '#0369a1',
-          light: '#bae6fd',
-        },
+      },
+      borderRadius: {
+        '2xl': '1rem',
+        '3xl': '1.25rem',
+      },
+      boxShadow: {
+        soft: '0 2px 8px rgba(0, 0, 0, 0.04)',
+        card: '0 4px 24px rgba(0, 0, 0, 0.06)',
+        'card-hover': '0 8px 32px rgba(0, 0, 0, 0.08)',
+      },
+      transitionDuration: {
+        250: '250ms',
+      },
+      transitionTimingFunction: {
+        smooth: 'cubic-bezier(0.4, 0, 0.2, 1)',
       },
     },
   },

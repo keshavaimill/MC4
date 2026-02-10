@@ -3,6 +3,16 @@ MC4 FastAPI Server (Updated for MC4 Synthetic Generator v2)
 Backend API for MC4 Forecasting and Planning System
 """
 
+import os
+import sys
+
+# Load .env from backend directory first (so GOOGLE_API_KEY etc. are set before Text2SQL imports)
+_backend_dir = os.path.dirname(os.path.abspath(__file__))
+_env_path = os.path.join(_backend_dir, ".env")
+if os.path.exists(_env_path):
+    from dotenv import load_dotenv
+    load_dotenv(_env_path)
+
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -10,24 +20,25 @@ from typing import Optional
 import pandas as pd
 import numpy as np
 from datetime import datetime
-import os
-import sys
 
 # Add parent directory to path for Text2SQL import
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+parent_dir = os.path.dirname(_backend_dir)
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
-# Import Text2SQL chatbot
+# Import Text2SQL chatbot (optional: if API key missing or import fails, server still starts; chatbot returns 503)
+run_chatbot_query = None
+CHATBOT_AVAILABLE = False
 try:
     text2sql_path = os.path.join(parent_dir, "Text2SQL_V2")
     if text2sql_path not in sys.path:
         sys.path.insert(0, text2sql_path)
-    from chatbot_api import run_chatbot_query
+    from chatbot_api import run_chatbot_query as _run_chatbot_query
+    run_chatbot_query = _run_chatbot_query
     CHATBOT_AVAILABLE = True
-except ImportError as e:
+except Exception as e:
     print(f"⚠️ Text2SQL chatbot not available: {e}")
-    CHATBOT_AVAILABLE = False
+    print("   Set GOOGLE_API_KEY (or OPENAI_API_KEY) in backend/.env to enable the chatbot. Other API endpoints will work.")
 
 app = FastAPI(title="MC4 Forecasting API", version="2.0.0")
 
@@ -172,7 +183,8 @@ async def get_executive_kpis(
             total_available = period_load["available_hours"].sum()
 
             utilization = (required_hours / total_available * 100) if total_available > 0 else 0
-            overload_mills = len(period_load[period_load["overload_hours"] > 0]["mill_id"].unique())
+            overloaded = period_load.loc[period_load["overload_hours"] > 0]
+            overload_mills = len(overloaded["mill_id"].unique()) if not overloaded.empty else 0
 
         # -----------------------------
         # Risk KPI (Wheat Price Avg)

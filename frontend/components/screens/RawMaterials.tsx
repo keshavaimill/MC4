@@ -1,155 +1,155 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { api } from '@/lib/api';
+import { getPeriodFromDate } from '@/lib/period';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+
+const CHART_COLORS = ['#B85C38', '#6e6e73', '#86868b', '#aeaeae', '#d1d1d6'];
 
 interface RawMaterialsProps {
   horizon: 'week' | 'month' | 'year';
+  fromDate?: string;
+  toDate?: string;
 }
 
-export default function RawMaterials({ horizon }: RawMaterialsProps) {
+export default function RawMaterials({ horizon, fromDate, toDate }: RawMaterialsProps) {
   const [rawMaterialData, setRawMaterialData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chartMounted, setChartMounted] = useState(false);
 
-  // Group by country for chart (must be before useEffect)
+  useEffect(() => {
+    setChartMounted(true);
+  }, []);
+
   const chartData = React.useMemo(() => {
-    if (!rawMaterialData || rawMaterialData.length === 0) {
-      return [];
-    }
-    
+    if (!rawMaterialData?.length) return [];
     const grouped = rawMaterialData.reduce((acc: any, item: any) => {
       const key = item.period;
-      if (!acc[key]) {
-        acc[key] = { period: key };
-      }
-      acc[key][item.country] = item.wheat_price_sar_per_ton;
+      if (!acc[key]) acc[key] = { period: key };
+      const price = Number(item.wheat_price_sar_per_ton);
+      acc[key][item.country] = Number.isFinite(price) ? price : 0;
       return acc;
     }, {});
-
-    const chartArray = Object.values(grouped).sort((a: any, b: any) => 
-      a.period.localeCompare(b.period)
-    );
-    
-    console.log('Chart data processed:', chartArray);
-    return chartArray;
+    return Object.values(grouped).sort((a: any, b: any) => String(a.period).localeCompare(String(b.period)));
   }, [rawMaterialData]);
 
   const countries = React.useMemo(() => {
-    return [...new Set(rawMaterialData.map((item) => item.country))].filter(Boolean);
+    return Array.from(new Set(rawMaterialData.map((item) => item.country))).filter(Boolean);
   }, [rawMaterialData]);
 
-  useEffect(() => {
-    fetchData();
-  }, [horizon]);
+  const barDataByCountry = React.useMemo(() => {
+    if (!rawMaterialData?.length) return [];
+    const byCountry = rawMaterialData.reduce((acc: Record<string, number>, item: any) => {
+      const c = item.country;
+      const p = Number(item.wheat_price_sar_per_ton);
+      if (c) acc[c] = Number.isFinite(p) ? p : 0;
+      return acc;
+    }, {});
+    return Object.entries(byCountry).map(([country, price]) => ({ country, price }));
+  }, [rawMaterialData]);
 
-  const fetchData = async () => {
+  const period = useMemo(() => getPeriodFromDate(fromDate ?? '', horizon), [fromDate, horizon]);
+
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/raw-material?horizon=${horizon}`);
-      const data = response.data.data || [];
-      setRawMaterialData(data);
-      console.log('Raw material data received:', data);
+      const response = await api.get(`/api/raw-material?horizon=${horizon}&period=${encodeURIComponent(period)}`);
+      setRawMaterialData(response.data.data || []);
     } catch (error) {
       console.error('Error fetching raw material data:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [horizon, period]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   if (loading) {
-    return <div className="text-center py-12">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="h-8 w-8 rounded-full border-2 border-ink/20 border-t-ink animate-spin" />
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Raw Materials</h1>
-        <p className="text-sm text-gray-500 mt-1">Wheat prices and availability by country</p>
+        <h1 className="screen-title">Raw Materials</h1>
+        <p className="screen-subtitle">Wheat prices and availability by country</p>
       </div>
 
-      {/* Price Chart */}
-      <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold mb-4">Wheat Price by Country</h2>
+      <div className="apple-card p-6">
+        <h2 className="text-base font-semibold text-ink mb-4">Wheat Price by Country</h2>
         {chartData.length === 0 ? (
-          <div className="flex items-center justify-center h-64 text-gray-500">
-            <div className="text-center">
-              <p className="text-sm font-medium mb-2">No raw material data available</p>
-              <p className="text-xs">Data received: {rawMaterialData.length} items</p>
-              <details className="mt-4 text-left max-w-md mx-auto">
-                <summary className="cursor-pointer text-xs text-blue-600">Debug: View raw data</summary>
-                <pre className="text-xs mt-2 p-2 bg-gray-100 rounded overflow-auto max-h-40">
-                  {JSON.stringify(rawMaterialData.slice(0, 5), null, 2)}
-                </pre>
-              </details>
-            </div>
+          <div className="flex flex-col items-center justify-center min-h-[280px] rounded-xl bg-surface-hover/80 border-2 border-dashed border-border p-6 text-center">
+            <p className="text-ink font-medium">No wheat price data for this period</p>
+            <p className="text-sm text-ink-secondary mt-2 max-w-md">
+              Data is available for <strong>2020</strong>. Set the navbar <strong>From</strong> date to <code className="bg-white border border-border px-1.5 py-0.5 rounded text-brand">2020-01-01</code> (or any date in 2020) to see the chart.
+            </p>
+          </div>
+        ) : !chartMounted ? (
+          <div className="flex items-center justify-center h-[400px] text-ink-secondary text-sm">Loading chart…</div>
+        ) : chartData.length >= 2 ? (
+          <div className="w-full overflow-x-auto">
+            <LineChart data={chartData} width={700} height={400} margin={{ top: 16, right: 24, left: 16, bottom: 24 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e7" />
+              <XAxis dataKey="period" stroke="#6e6e73" fontSize={12} tick={{ fill: '#6e6e73' }} />
+              <YAxis stroke="#6e6e73" fontSize={12} tick={{ fill: '#6e6e73' }} />
+              <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e5e5e7', background: '#fff' }} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              {countries.map((country, idx) => (
+                <Line
+                  key={country}
+                  type="monotone"
+                  dataKey={country}
+                  stroke={CHART_COLORS[idx % CHART_COLORS.length]}
+                  strokeWidth={2}
+                  dot={{ fill: CHART_COLORS[idx % CHART_COLORS.length] }}
+                  name={country}
+                />
+              ))}
+            </LineChart>
+          </div>
+        ) : barDataByCountry.length > 0 ? (
+          <div className="w-full overflow-x-auto">
+            <BarChart data={barDataByCountry} width={700} height={400} margin={{ top: 16, right: 24, left: 16, bottom: 80 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e7" />
+              <XAxis dataKey="country" angle={-25} textAnchor="end" height={80} stroke="#6e6e73" fontSize={11} tick={{ fill: '#6e6e73' }} />
+              <YAxis stroke="#6e6e73" fontSize={12} tick={{ fill: '#6e6e73' }} label={{ value: 'Price (SAR/ton)', angle: -90, position: 'insideLeft', fill: '#6e6e73', style: { fontSize: 11 } }} />
+              <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e5e5e7', background: '#fff' }} />
+              <Bar dataKey="price" fill="#B85C38" name="Wheat price (SAR/ton)" radius={[4, 4, 0, 0]} maxBarSize={72} />
+            </BarChart>
           </div>
         ) : (
-          <div className="w-full" style={{ height: '400px', position: 'relative' }}>
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="period" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                {countries.length > 0 ? (
-                  countries.map((country, idx) => {
-                    const colors = ['#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
-                    return (
-                      <Line
-                        key={country}
-                        type="monotone"
-                        dataKey={country}
-                        stroke={colors[idx % colors.length]}
-                        strokeWidth={2}
-                        name={country}
-                      />
-                    );
-                  })
-                ) : (
-                  <Line
-                    type="monotone"
-                    dataKey="price"
-                    stroke="#0ea5e9"
-                    strokeWidth={2}
-                    name="Price"
-                  />
-                )}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          <div className="flex items-center justify-center h-[400px] text-ink-secondary text-sm">Loading chart…</div>
         )}
       </div>
 
-      {/* Price Table */}
-      <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
-        <div className="p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold">Current Prices</h2>
+      <div className="apple-card overflow-hidden">
+        <div className="p-4 border-b border-border-soft">
+          <h2 className="text-base font-semibold text-ink">Current Prices</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Country</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Price (SAR/ton)</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Availability (tons)</th>
+            <thead>
+              <tr className="border-b border-border-soft bg-surface-hover/50">
+                <th className="px-4 py-3 text-left text-xs font-medium text-ink-tertiary uppercase tracking-wider">Country</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-ink-tertiary uppercase tracking-wider">Price (SAR/ton)</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-ink-tertiary uppercase tracking-wider">Availability (tons)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-border-soft">
               {rawMaterialData
-                .filter((item, idx, arr) => 
-                  arr.findIndex((x) => x.country === item.country) === idx
-                )
+                .filter((item, idx, arr) => arr.findIndex((x) => x.country === item.country) === idx)
                 .map((item, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.country}</td>
-                    <td className="px-4 py-3 text-sm text-right font-medium">
-                      {item.wheat_price_sar_per_ton.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right">
-                      {item.availability_tons.toLocaleString()}
-                    </td>
+                  <tr key={idx} className="transition-colors hover:bg-surface-hover/50">
+                    <td className="px-4 py-3 text-sm font-medium text-ink">{item.country}</td>
+                    <td className="px-4 py-3 text-sm text-right font-medium text-ink">{item.wheat_price_sar_per_ton.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-ink-secondary">{item.availability_tons?.toLocaleString() ?? '—'}</td>
                   </tr>
                 ))}
             </tbody>

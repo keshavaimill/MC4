@@ -7,7 +7,7 @@
     "dev": "node --no-deprecation ./node_modules/.bin/next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings 0"
   },
   "dependencies": {
     "axios": "^1.13.5",
