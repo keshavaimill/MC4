@@ -25,74 +25,35 @@ backend_dir = os.path.dirname(os.path.abspath(__file__))
 datasets_dir = os.path.join(backend_dir, "datasets")
 
 MC4_SCHEMA = [
-    {
-        "table_name": "sku_forecast",
-        "path": os.path.join(datasets_dir, "sku_forecast.csv"),
-    },
-    {
-        "table_name": "sku_master",
-        "path": os.path.join(datasets_dir, "sku_master.csv"),
-    },
-    {
-        "table_name": "recipe_master",
-        "path": os.path.join(datasets_dir, "recipe_master.csv"),
-    },
-    {
-        "table_name": "recipe_eligibility",
-        "path": os.path.join(datasets_dir, "recipe_eligibility.csv"),
-    },
-    {
-        "table_name": "mill_master",
-        "path": os.path.join(datasets_dir, "mill_master.csv"),
-    },
-    {
-        "table_name": "mill_load",
-        "path": os.path.join(datasets_dir, "mill_load.csv"),
-    },
-    {
-        "table_name": "mill_load_weekly",
-        "path": os.path.join(datasets_dir, "mill_load_weekly.csv"),
-    },
-    {
-        "table_name": "mill_load_monthly",
-        "path": os.path.join(datasets_dir, "mill_load_monthly.csv"),
-    },
-    {
-        "table_name": "mill_load_yearly",
-        "path": os.path.join(datasets_dir, "mill_load_yearly.csv"),
-    },
-    {
-        "table_name": "mill_capacity",
-        "path": os.path.join(datasets_dir, "mill_capacity.csv"),
-    },
-    {
-        "table_name": "mill_recipe_schedule",
-        "path": os.path.join(datasets_dir, "mill_recipe_schedule.csv"),
-    },
-    {
-        "table_name": "mill_recipe_rates",
-        "path": os.path.join(datasets_dir, "mill_recipe_rates.csv"),
-    },
-    {
-        "table_name": "bulk_flour_demand",
-        "path": os.path.join(datasets_dir, "bulk_flour_demand.csv"),
-    },
-    {
-        "table_name": "recipe_demand",
-        "path": os.path.join(datasets_dir, "recipe_demand.csv"),
-    },
-    {
-        "table_name": "recipe_mix",
-        "path": os.path.join(datasets_dir, "recipe_mix.csv"),
-    },
-    {
-        "table_name": "raw_material",
-        "path": os.path.join(datasets_dir, "raw_material.csv"),
-    },
-    {
-        "table_name": "time_dimension",
-        "path": os.path.join(datasets_dir, "time_dimension.csv"),
-    },
+    # Layer 1 — Master / Dimension tables
+    {"table_name": "dim_mill", "path": os.path.join(datasets_dir, "dim_mill.csv")},
+    {"table_name": "dim_recipe", "path": os.path.join(datasets_dir, "dim_recipe.csv")},
+    {"table_name": "dim_flour_type", "path": os.path.join(datasets_dir, "dim_flour_type.csv")},
+    {"table_name": "dim_sku", "path": os.path.join(datasets_dir, "dim_sku.csv")},
+    {"table_name": "dim_wheat_type", "path": os.path.join(datasets_dir, "dim_wheat_type.csv")},
+    {"table_name": "dim_country", "path": os.path.join(datasets_dir, "dim_country.csv")},
+    # Layer 2 — Mapping tables
+    {"table_name": "map_flour_recipe", "path": os.path.join(datasets_dir, "map_flour_recipe.csv")},
+    {"table_name": "map_recipe_mill", "path": os.path.join(datasets_dir, "map_recipe_mill.csv")},
+    {"table_name": "map_sku_flour", "path": os.path.join(datasets_dir, "map_sku_flour.csv")},
+    {"table_name": "map_recipe_wheat", "path": os.path.join(datasets_dir, "map_recipe_wheat.csv")},
+    {"table_name": "map_wheat_country", "path": os.path.join(datasets_dir, "map_wheat_country.csv")},
+    # Layer 3 — Fact / Transactional tables
+    {"table_name": "fact_sku_forecast", "path": os.path.join(datasets_dir, "fact_sku_forecast.csv")},
+    {"table_name": "fact_bulk_flour_requirement", "path": os.path.join(datasets_dir, "fact_bulk_flour_requirement.csv")},
+    {"table_name": "fact_recipe_demand", "path": os.path.join(datasets_dir, "fact_recipe_demand.csv")},
+    {"table_name": "fact_mill_capacity", "path": os.path.join(datasets_dir, "fact_mill_capacity.csv")},
+    {"table_name": "fact_mill_schedule_daily", "path": os.path.join(datasets_dir, "fact_mill_schedule_daily.csv")},
+    {"table_name": "fact_mill_recipe_plan", "path": os.path.join(datasets_dir, "fact_mill_recipe_plan.csv")},
+    {"table_name": "fact_wheat_requirement", "path": os.path.join(datasets_dir, "fact_wheat_requirement.csv")},
+    {"table_name": "fact_waste_metrics", "path": os.path.join(datasets_dir, "fact_waste_metrics.csv")},
+    {"table_name": "raw_material_prices", "path": os.path.join(datasets_dir, "raw_material_prices.csv")},
+    # Layer 4 — KPI Snapshot
+    {"table_name": "fact_kpi_snapshot", "path": os.path.join(datasets_dir, "fact_kpi_snapshot.csv")},
+    # Time
+    {"table_name": "time_dimension", "path": os.path.join(datasets_dir, "time_dimension.csv")},
+    # Recipe Mix (helper)
+    {"table_name": "recipe_mix", "path": os.path.join(datasets_dir, "recipe_mix.csv")},
 ]
 
 def setup_database():

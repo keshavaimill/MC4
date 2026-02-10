@@ -161,6 +161,14 @@ VALUE VALIDATION:
 - For sales_channel: Use 'E-Commerce' or 'Offline Retail' (exact match)
 - For raw_material: Use values like 'Leather_FG', 'Rubber_Sole', 'EVA_Foam' (case-insensitive match)
 
+DATA AVAILABILITY RULE (MANDATORY):
+•⁠  ⁠This database DOES NOT contain actual sales transactions.
+•⁠  ⁠All SKU-related numbers are FORECASTED demand only.
+•⁠  ⁠There is NO sales_channel data.
+•⁠  ⁠If a question asks about actual sales, revenue, orders, or sales channels:
+  - Do NOT generate SQL
+  - Return an empty SELECT (SELECT NULL WHERE 1=0)
+
 DATABASE SCHEMA WITH COMPLETE METADATA:
 {schema}
 
