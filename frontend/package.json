@@ -4,7 +4,6 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-<<<<<<< HEAD
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
@@ -12,12 +11,6 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"
-=======
-    "dev": "node --no-deprecation ./node_modules/.bin/next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings 0"
->>>>>>> 2f1e83327ddcd0d6bef26f4e2cb18733924d07db
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

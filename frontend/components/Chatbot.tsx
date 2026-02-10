@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { X, Send, Bot, User, MessageCircle, Minimize2 } from 'lucide-react';
-import { api } from '@/lib/api';
+// Ensure the correct path to the api module
+import { api } from '../lib/api';
 
 interface Message {
   role: 'user' | 'assistant';

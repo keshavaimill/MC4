@@ -1,18 +1,24 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Search, Bell, Settings, User, HelpCircle, LogOut } from "lucide-react";
+import { Search, Bell, Settings, User, HelpCircle, LogOut, CalendarIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useFilters, type Horizon, type Scenario } from "@/context/FilterContext";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { useFilters, type Scenario } from "@/context/FilterContext";
 import { useAuth } from "@/context/AuthContext";
+import { format, parseISO } from "date-fns";
 
 interface TopBarProps {
   onOpenAI?: () => void;
 }
 
 export function TopBar({ onOpenAI }: TopBarProps) {
-  const { horizon, setHorizon, scenario, setScenario } = useFilters();
+  const { fromDate, toDate, setFromDate, setToDate, scenario, setScenario } = useFilters();
   const { logout } = useAuth();
   const navigate = useNavigate();
+
+  const parsedFrom = parseISO(fromDate);
+  const parsedTo = parseISO(toDate);
 
   return (
     <header className="sticky top-0 z-50 border-b-2 border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
@@ -23,22 +29,46 @@ export function TopBar({ onOpenAI }: TopBarProps) {
           <img
             src="/MC4_Logo.webp"
             alt="MC4 logo"
-            className="h-7 w-7 rounded-sm object-contain"
+            className="h-12 w-12 rounded-md object-contain"
           />
-          <span className="text-xl font-bold text-foreground">MC4</span>
+          <span className="text-2xl font-bold text-foreground">MC4</span>
         </Link>
 
-        {/* Horizon Switcher */}
-        <Select value={horizon} onValueChange={(v) => setHorizon(v as Horizon)}>
-          <SelectTrigger className="h-8 w-24 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="week">Week</SelectItem>
-            <SelectItem value="month">Month</SelectItem>
-            <SelectItem value="year">Year</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Date From Picker */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="flex h-8 items-center gap-2 rounded-md border border-input bg-background px-3 text-xs text-muted-foreground hover:bg-accent">
+              <CalendarIcon className="h-3.5 w-3.5" />
+              <span>From: {format(parsedFrom, "dd MMM yyyy")}</span>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={parsedFrom}
+              onSelect={(date) => date && setFromDate(format(date, "yyyy-MM-dd"))}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+
+        {/* Date To Picker */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="flex h-8 items-center gap-2 rounded-md border border-input bg-background px-3 text-xs text-muted-foreground hover:bg-accent">
+              <CalendarIcon className="h-3.5 w-3.5" />
+              <span>To: {format(parsedTo, "dd MMM yyyy")}</span>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={parsedTo}
+              onSelect={(date) => date && setToDate(format(date, "yyyy-MM-dd"))}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
 
         {/* Scenario Switcher */}
         <Select value={scenario} onValueChange={(v) => setScenario(v as Scenario)}>
