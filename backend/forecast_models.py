@@ -90,11 +90,71 @@ class SimpleModel:
     def predict(self, future):
         n_periods = len(future)
         base_value = self.last_value
+        
+        # Convert dates to datetime if needed
+        if not isinstance(future['ds'].iloc[0], pd.Timestamp):
+            future['ds'] = pd.to_datetime(future['ds'])
+        
         # Linear trend projection
-        forecast_values = base_value + self.trend * np.arange(1, n_periods + 1)
+        trend_component = self.trend * np.arange(1, n_periods + 1)
+        
+        # Add seasonal variability (sine wave based on day of year)
+        doy = future['ds'].dt.dayofyear
+        seasonal_multiplier = 1.0 + 0.08 * np.sin(2 * np.pi * doy / 365)
+        
+        # Add weekend effect (reduce demand on weekends)
+        day_of_week = future['ds'].dt.dayofweek
+        # Saudi Arabia weekend: From Jan 2022: Saturday-Sunday (dayofweek 5, 6)
+        # Before 2022: Friday-Saturday (dayofweek 4, 5)
+        is_weekend = np.where(
+            future['ds'] < pd.Timestamp("2022-01-01"),
+            np.isin(day_of_week, [4, 5]),  # Fri, Sat
+            np.isin(day_of_week, [5, 6]),  # Sat, Sun
+        )
+        weekend_multiplier = np.where(is_weekend, 0.92, 1.0)
+        
+        # Add Ramadan and Hajj event multipliers
+        ramadan_starts = {
+            2020: (4, 24), 2021: (4, 13), 2022: (4, 2), 2023: (3, 23),
+            2024: (3, 11), 2025: (3, 1), 2026: (2, 18), 2027: (2, 7),
+            2028: (1, 27), 2029: (1, 15),
+        }
+        hajj_months = {
+            2020: 7, 2021: 7, 2022: 7, 2023: 6,
+            2024: 6, 2025: 6, 2026: 5, 2027: 5,
+            2028: 5, 2029: 4,
+        }
+        
+        def _is_ramadan(date):
+            if date.year in ramadan_starts:
+                m, d = ramadan_starts[date.year]
+                s = pd.Timestamp(date.year, m, d)
+                return s <= date <= s + pd.Timedelta(days=29)
+            return False
+        
+        def _is_hajj(date):
+            return date.year in hajj_months and date.month == hajj_months[date.year]
+        
+        is_ramadan = future['ds'].apply(_is_ramadan).values
+        is_hajj = future['ds'].apply(_is_hajj).values
+        event_multiplier = np.maximum(
+            np.where(is_ramadan, 1.35, 1.0),
+            np.where(is_hajj, 1.25, 1.0)
+        )
+        
+        # Add random noise based on historical variability (scaled to be realistic)
+        # Use a small random component (5% of std) to add natural day-to-day variation
+        noise_component = np.random.normal(0, self.std * 0.05, n_periods)
+        
+        # Combine all components
+        forecast_values = (
+            (base_value + trend_component) * seasonal_multiplier * weekend_multiplier * event_multiplier + noise_component
+        )
+        
         # Ensure non-negative
         forecast_values = np.maximum(forecast_values, 0)
         future['yhat'] = forecast_values
+        
         # Confidence intervals
         future['yhat_lower'] = np.maximum(forecast_values - 1.96 * self.std, 0)  # 95% CI
         future['yhat_upper'] = forecast_values + 1.96 * self.std

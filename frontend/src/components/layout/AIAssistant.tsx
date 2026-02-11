@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Send, Bot, User, Sparkles, ExternalLink, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { chatbotQuery, type ChatbotResponse } from "@/lib/api";
+import { chatbotQuery, emailChatbotInsight, type ChatbotResponse } from "@/lib/api";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
   chart?: string; // base64 image
   sqlQuery?: string;
+  data?: Record<string, unknown>[];
+  question?: string; // Store the original question for email
   actions?: { label: string; icon: "link" | "email" }[];
 }
 
@@ -32,6 +34,7 @@ export function AIAssistant({ open, onClose }: AIAssistantProps) {
   const [messages, setMessages] = useState<Message[]>(starterMessages);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [emailing, setEmailing] = useState<number | null>(null); // Track which message is being emailed
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -58,6 +61,8 @@ export function AIAssistant({ open, onClose }: AIAssistantProps) {
             : result.error || "I could not find an answer for that question."),
         chart: result.chart,
         sqlQuery: result.sql_query,
+        data: result.data,
+        question: question, // Store the original question for email
         actions: [
           { label: "View supporting data", icon: "link" },
           { label: "Email this insight", icon: "email" },
@@ -80,6 +85,30 @@ export function AIAssistant({ open, onClose }: AIAssistantProps) {
       ]);
     } finally {
       setIsTyping(false);
+    }
+  };
+
+  const handleEmailInsight = async (messageIndex: number) => {
+    const message = messages[messageIndex];
+    if (!message.question || message.role !== "assistant") return;
+
+    setEmailing(messageIndex);
+    try {
+      await emailChatbotInsight({
+        question: message.question,
+        answer: message.content,
+        sql_query: message.sqlQuery,
+        data: message.data,
+        chart: message.chart,
+      });
+      
+      // Show success feedback
+      alert("Email sent successfully!");
+    } catch (err: any) {
+      console.error("Error sending email:", err);
+      alert(err.message || "Failed to send email. Please check your email configuration.");
+    } finally {
+      setEmailing(null);
     }
   };
 
@@ -150,19 +179,34 @@ export function AIAssistant({ open, onClose }: AIAssistantProps) {
 
               {msg.actions && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {msg.actions.map((action) => (
-                    <button
-                      key={action.label}
-                      className="flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary hover:bg-primary/20 transition-colors"
-                    >
-                      {action.icon === "link" ? (
-                        <ExternalLink className="h-2.5 w-2.5" />
-                      ) : (
-                        <Mail className="h-2.5 w-2.5" />
-                      )}
-                      {action.label}
-                    </button>
-                  ))}
+                  {msg.actions.map((action, actionIdx) => {
+                    const messageIndex = messages.findIndex((m) => m === msg);
+                    const isEmailing = emailing === messageIndex && action.icon === "email";
+                    
+                    return (
+                      <button
+                        key={action.label}
+                        onClick={() => {
+                          if (action.icon === "email" && messageIndex >= 0) {
+                            handleEmailInsight(messageIndex);
+                          } else if (action.icon === "link" && msg.data) {
+                            // Open data in new window or show modal
+                            console.log("View supporting data:", msg.data);
+                            // You can implement a modal or new window here
+                          }
+                        }}
+                        disabled={isEmailing}
+                        className="flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {action.icon === "link" ? (
+                          <ExternalLink className="h-2.5 w-2.5" />
+                        ) : (
+                          <Mail className={cn("h-2.5 w-2.5", isEmailing && "animate-pulse")} />
+                        )}
+                        {isEmailing ? "Sending..." : action.label}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>

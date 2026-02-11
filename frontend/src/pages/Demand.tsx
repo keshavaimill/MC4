@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { Search, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 
 interface SkuRow {
@@ -23,7 +23,7 @@ interface SkuRow {
 export default function Demand() {
   const [search, setSearch] = useState("");
   const { toast } = useToast();
-  const { queryParams } = useFilters();
+  const { queryParams, kpiQueryParams } = useFilters();
 
   const [kpis, setKpis] = useState<DemandRecipeKpis | null>(null);
   const [skuData, setSkuData] = useState<SkuRow[]>([]);
@@ -34,9 +34,9 @@ export default function Demand() {
     let cancelled = false;
     setLoading(true);
     Promise.all([
-      fetchDemandRecipeKpis(queryParams),
-      fetchSkuForecast(queryParams),
-      fetchRecipePlanning(queryParams),
+      fetchDemandRecipeKpis(kpiQueryParams),    // KPIs use future-only dates
+      fetchSkuForecast(queryParams),             // Data tables use full range
+      fetchRecipePlanning(queryParams),           // Charts use full range
     ])
       .then(([kpiData, skuRes, recipeRes]) => {
         if (cancelled) return;
@@ -51,7 +51,7 @@ export default function Demand() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [queryParams.from_date, queryParams.to_date, queryParams.scenario, queryParams.horizon]);
+  }, [queryParams.from_date, queryParams.to_date, queryParams.scenario, queryParams.horizon, kpiQueryParams.from_date, kpiQueryParams.to_date]);
 
   const demandKpis = kpis
     ? [
@@ -103,29 +103,62 @@ export default function Demand() {
   );
 
   // Build translation funnel from kpis
+  // Note: SKU forecast units need to be converted to tons for proper comparison
+  // Average pack size is ~22kg (mix of 45kg, 10kg, 1kg), so ~45 units per ton
+  // Bulk flour is aggregated from SKU forecast_tons (not units)
+  // Recipe hours = bulk_flour_tons / milling_rate_tph (avg ~24 TPH)
   const translationFunnel = kpis
-    ? [
-        { stage: "SKU Forecast", value: kpis.total_sku_forecast_units, conversionPct: 100 },
-        { stage: "Bulk Flour", value: kpis.bulk_flour_required_tons, conversionPct: Math.round((kpis.bulk_flour_required_tons / Math.max(1, kpis.total_sku_forecast_units)) * 10000) / 100 || 90 },
-        { stage: "Recipe Hours", value: kpis.total_recipe_hours, conversionPct: Math.round((kpis.total_recipe_hours / Math.max(1, kpis.bulk_flour_required_tons)) * 10000) / 100 || 80 },
-      ]
+    ? (() => {
+        // Convert SKU units to approximate tons (using average ~45 units per ton)
+        // This is approximate since pack sizes vary, but gives reasonable conversion %
+        const avgUnitsPerTon = 45; // Approximate: mix of 45kg, 10kg, 1kg bags
+        const skuForecastTons = kpis.total_sku_forecast_units / avgUnitsPerTon;
+        
+        // SKU Forecast → Bulk Flour: What % of SKU forecast tons becomes bulk flour tons
+        // Bulk flour is aggregated from forecast_tons, so should be close to 100% (with minor losses)
+        const bulkFlourConversion = skuForecastTons > 0 
+          ? Math.round((kpis.bulk_flour_required_tons / skuForecastTons) * 10000) / 100 
+          : 100;
+        
+        // Bulk Flour → Recipe Hours: What % of bulk flour tons translates to recipe hours
+        // Recipe hours = tons / milling_rate_tph. Average milling rate ~24 TPH
+        // So: hours * 24 = tons. Conversion % = (hours * 24) / tons * 100
+        const avgMillingRateTPH = 24; // Average milling rate tons per hour
+        const recipeHoursConversion = kpis.bulk_flour_required_tons > 0
+          ? Math.round((kpis.total_recipe_hours * avgMillingRateTPH / kpis.bulk_flour_required_tons) * 10000) / 100
+          : 100;
+        
+        return [
+          { stage: "SKU Forecast", value: kpis.total_sku_forecast_units, conversionPct: 100 },
+          { stage: "Bulk Flour", value: kpis.bulk_flour_required_tons, conversionPct: Math.min(100, Math.max(0, bulkFlourConversion)) },
+          { stage: "Recipe Hours", value: kpis.total_recipe_hours, conversionPct: Math.min(100, Math.max(0, recipeHoursConversion)) },
+        ];
+      })()
     : [];
 
-  // Build recipe demand chart: group by recipe, stack by mill
+  // Build recipe demand chart: group by period, each recipe as a line
   const chartData = (() => {
-    const byRecipe: Record<string, Record<string, number>> = {};
+    const byPeriod: Record<string, Record<string, number>> = {};
     for (const row of recipeChart) {
+      const period = (row.period as string) || "Unknown";
       const recipeName = (row.recipe_name as string) || "Unknown";
-      const period = (row.period as string) || "?";
       const hours = Number(row.scheduled_hours) || 0;
-      if (!byRecipe[recipeName]) byRecipe[recipeName] = {};
-      byRecipe[recipeName][period] = (byRecipe[recipeName][period] || 0) + hours;
+      if (!byPeriod[period]) byPeriod[period] = {};
+      byPeriod[period][recipeName] = (byPeriod[period][recipeName] || 0) + hours;
     }
-    return Object.entries(byRecipe).map(([recipe, periods]) => ({ recipe, ...periods }));
+    return Object.entries(byPeriod)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([period, recipes]) => ({ period, ...recipes }));
   })();
 
-  const periodKeys = [...new Set(recipeChart.map((r) => r.period as string))].filter(Boolean).sort();
-  const barColors = ["hsl(var(--primary))", "hsl(var(--warning))", "hsl(var(--success))", "#8B4513"];
+  // Derive all recipe names for chart lines
+  const recipeNames = [...new Set(recipeChart.map((r) => (r.recipe_name as string)).filter(Boolean))].sort();
+  const lineColors = [
+    "hsl(var(--primary))", "hsl(var(--warning))", "hsl(var(--success))", 
+    "#8B4513", "#6366f1", "#ec4899", "#14b8a6", "#f59e0b"
+  ];
+
+  const hasChartData = chartData.length > 0 && recipeNames.length > 0;
 
   if (loading) {
     return (
@@ -141,8 +174,7 @@ export default function Demand() {
   return (
     <DashboardLayout>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Demand &rarr; Recipe Translation</h1>
-        <p className="text-sm text-muted-foreground">SKU forecasts translated to recipe requirements</p>
+        <h1 className="text-2xl font-bold text-foreground">Demand Forecasting</h1>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
@@ -151,9 +183,8 @@ export default function Demand() {
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-        {/* SKU Table */}
-        <ChartContainer title="SKU Forecast Table" subtitle="Forecast by SKU from backend" className="lg:col-span-1">
+      {/* SKU Table - Full Width */}
+      <ChartContainer title="SKU Forecast Table" subtitle="Forecast by SKU from backend" className="mb-6">
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Search SKU..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
@@ -187,53 +218,95 @@ export default function Demand() {
           </div>
         </ChartContainer>
 
-        <div className="flex flex-col gap-6">
-          {/* Translation Funnel */}
-          <ChartContainer title="Translation Funnel" subtitle="Volume flow: SKU &rarr; Flour &rarr; Recipe">
-            <div className="space-y-3 py-4">
-              {translationFunnel.map((stage) => (
-                <button
-                  key={stage.stage}
-                  type="button"
-                  onClick={() => {
-                    toast({ title: stage.stage, description: `Value: ${stage.value.toLocaleString()}` });
-                  }}
-                  className="flex w-full items-center gap-4 text-left"
-                >
-                  <div className="w-28 text-right text-xs font-medium text-muted-foreground">{stage.stage}</div>
-                  <div className="relative flex-1 h-9 overflow-hidden rounded-md bg-muted">
-                    <div
-                      className="absolute inset-y-0 left-0 rounded-md bg-primary/80 transition-all"
-                      style={{ width: `${Math.min(100, stage.conversionPct)}%` }}
-                    />
-                    <div className="relative z-10 flex h-full items-center justify-between px-3">
-                      <span className="font-mono text-xs font-bold text-primary-foreground">
-                        {stage.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                      </span>
-                      <span className="font-mono text-xs font-semibold text-primary-foreground">{stage.conversionPct}%</span>
-                    </div>
+      <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+        {/* Translation Funnel */}
+        <ChartContainer title="Translation Funnel" subtitle="Volume flow: SKU &rarr; Flour &rarr; Recipe">
+          <div className="space-y-3 py-4">
+            {translationFunnel.map((stage) => (
+              <button
+                key={stage.stage}
+                type="button"
+                onClick={() => {
+                  toast({ title: stage.stage, description: `Value: ${stage.value.toLocaleString()}` });
+                }}
+                className="flex w-full items-center gap-4 text-left"
+              >
+                <div className="w-28 text-right text-xs font-medium text-muted-foreground">{stage.stage}</div>
+                <div className="relative flex-1 h-9 overflow-hidden rounded-md bg-muted">
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-md bg-primary/80 transition-all"
+                    style={{ width: `${Math.min(100, stage.conversionPct)}%` }}
+                  />
+                  <div className="relative z-10 flex h-full items-center justify-between px-3">
+                    <span className="font-mono text-xs font-bold text-primary-foreground">
+                      {stage.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </span>
+                    <span className="font-mono text-xs font-semibold text-primary-foreground">{stage.conversionPct}%</span>
                   </div>
-                </button>
-              ))}
-            </div>
-          </ChartContainer>
+                </div>
+              </button>
+            ))}
+          </div>
+        </ChartContainer>
 
-          {/* Recipe Demand Chart */}
-          <ChartContainer title="Recipe Demand by Period" subtitle="Scheduled hours per recipe">
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={chartData} barCategoryGap="20%">
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="recipe" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Legend />
-                {periodKeys.slice(0, 4).map((p, i) => (
-                  <Bar key={p} dataKey={p} name={p} stackId="a" fill={barColors[i % barColors.length]} radius={i === Math.min(3, periodKeys.length - 1) ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
+        {/* Recipe Demand Chart */}
+        <ChartContainer title="Recipe Demand by Period" subtitle="Scheduled hours per recipe">
+            {hasChartData ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart 
+                  data={chartData} 
+                  margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis 
+                    dataKey="period" 
+                    tick={{ fontSize: 11 }} 
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 11 }}
+                    width={50}
+                    label={{ value: 'Hours', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 11 } }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      borderRadius: 6, 
+                      border: "1px solid hsl(var(--border))",
+                      backgroundColor: 'hsl(var(--card))',
+                      fontSize: 11,
+                      padding: '6px 10px',
+                    }} 
+                    formatter={(value: number) => [`${value.toFixed(1)} hrs`]}
+                  />
+                  <Legend 
+                    iconSize={10}
+                    iconType="line"
+                    wrapperStyle={{ fontSize: '11px', paddingTop: '4px', lineHeight: '20px' }}
+                    formatter={(value: string) => (
+                      <span style={{ fontSize: '11px', color: 'hsl(var(--foreground))' }}>{value}</span>
+                    )}
+                  />
+                  {recipeNames.map((recipe, i) => (
+                    <Line
+                      key={recipe}
+                      type="monotone"
+                      dataKey={recipe}
+                      name={recipe}
+                      stroke={lineColors[i % lineColors.length]}
+                      strokeWidth={2}
+                      dot={{ r: 2.5 }}
+                      activeDot={{ r: 4 }}
+                      connectNulls
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 py-10 text-center">
+                <p className="text-sm font-medium text-foreground">No recipe demand data</p>
+                <p className="text-xs text-muted-foreground mt-1">Select a date range or scenario with planning data</p>
+              </div>
+            )}
           </ChartContainer>
-        </div>
       </div>
     </DashboardLayout>
   );

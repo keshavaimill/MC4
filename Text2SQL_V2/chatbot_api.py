@@ -501,10 +501,11 @@ def run_chatbot_query(question: str):
             logger.warning(f"Visualization generation failed: {str(e)}")
             viz, mime = None, None
 
+    # Map backend response to frontend expected format
     return {
-        "sql": sql,
-        "summary": summary,
+        "sql_query": sql,
+        "answer": summary,
         "data": data,
-        "viz": viz,
-        "mime": mime
+        "chart": viz,  # Frontend expects 'chart' not 'viz'
+        "mime": mime  # Keep mime for reference, but frontend uses chart with data URI
     }

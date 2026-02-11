@@ -28,25 +28,49 @@ interface CapacityRow {
 }
 
 const RECIPE_COLORS: Record<string, string> = {
-  "80 Straight": "#D85B2B",
-  "80/70 Blend": "#F2A85C",
-  "72/60 Blend": "#8B9B7E",
-  "Special Blend": "#8B4513",
+  // Actual recipe names from data
+  "Bakery Standard":  "#2563EB",   // vivid blue
+  "Patent Blend":     "#F59E0B",   // amber / gold
+  "Brown Flour":      "#92400E",   // rich brown
+  "Standard Blend":   "#10B981",   // emerald green
+  "Premium Patent":   "#8B5CF6",   // violet / purple
+  "Whole Wheat":      "#D97706",   // deep orange
+  "Pastry Flour":     "#EC4899",   // pink
+  "Cake Flour":       "#06B6D4",   // cyan
+  // Legacy / alternate names
+  "80 Straight":      "#D85B2B",   // burnt orange
+  "80/70 Blend":      "#F2A85C",   // peach
+  "72/60 Blend":      "#0EA5E9",   // sky blue
+  "Special Blend":    "#E11D48",   // rose red
 };
 
+// Distinct palette for any recipe not in the map
+const FALLBACK_PALETTE = [
+  "#E11D48", "#7C3AED", "#0891B2", "#059669", "#CA8A04",
+  "#DC2626", "#4F46E5", "#0D9488", "#65A30D", "#EA580C",
+  "#9333EA", "#0284C7", "#16A34A", "#D97706", "#DB2777",
+];
+const _assignedFallback: Record<string, string> = {};
+let _fallbackIdx = 0;
+
 function getRecipeColor(name: string): string {
+  // Direct match
+  if (RECIPE_COLORS[name]) return RECIPE_COLORS[name];
+  // Partial match
   for (const [key, color] of Object.entries(RECIPE_COLORS)) {
-    if (name.includes(key)) return color;
+    if (name.includes(key) || key.includes(name)) return color;
   }
-  // Hash-based fallback
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return `hsl(${Math.abs(h) % 360}, 60%, 50%)`;
+  // Deterministic fallback – assign a distinct palette color per unique recipe
+  if (!_assignedFallback[name]) {
+    _assignedFallback[name] = FALLBACK_PALETTE[_fallbackIdx % FALLBACK_PALETTE.length];
+    _fallbackIdx++;
+  }
+  return _assignedFallback[name];
 }
 
 export default function Operations() {
   const { toast } = useToast();
-  const { queryParams } = useFilters();
+  const { queryParams, kpiQueryParams } = useFilters();
 
   const [kpis, setKpis] = useState<MillOperationsKpis | null>(null);
   const [schedule, setSchedule] = useState<ScheduleRow[]>([]);
@@ -57,9 +81,9 @@ export default function Operations() {
     let cancelled = false;
     setLoading(true);
     Promise.all([
-      fetchMillOperationsKpis(queryParams),
-      fetchMillSchedule({ ...queryParams, horizon: "week" }),
-      fetchMillCapacity(queryParams),
+      fetchMillOperationsKpis(kpiQueryParams),           // KPIs use future-only dates
+      fetchMillSchedule({ ...queryParams, horizon: "week" }),  // Data uses full range
+      fetchMillCapacity(queryParams),                     // Data uses full range
     ])
       .then(([kpiData, schedData, capData]) => {
         if (cancelled) return;
@@ -74,7 +98,7 @@ export default function Operations() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [queryParams.from_date, queryParams.to_date, queryParams.scenario, queryParams.horizon]);
+  }, [queryParams.from_date, queryParams.to_date, queryParams.scenario, queryParams.horizon, kpiQueryParams.from_date, kpiQueryParams.to_date]);
 
   const opsKpis = kpis
     ? [
@@ -86,20 +110,34 @@ export default function Operations() {
       ]
     : [];
 
+  // Create mill_id to mill_name mapping from capacity data
+  const millNameMap = (() => {
+    const map: Record<string, string> = {};
+    for (const row of capacity) {
+      if (row.mill_id && row.mill_name) {
+        map[row.mill_id] = row.mill_name;
+      }
+    }
+    return map;
+  })();
+
   // Build Gantt-like data grouped by mill
   const ganttData = (() => {
     const millIds = [...new Set(schedule.map((s) => s.mill_id))].sort();
+    // Map mill IDs to mill names, fallback to mill_id if name not available
+    const mills = millIds.map(id => millNameMap[id] || id);
     const allDates = [...new Set(schedule.map((s) => s.date))].sort();
-    if (allDates.length === 0) return { mills: millIds, dates: allDates, blocks: [] };
+    if (allDates.length === 0) return { mills, millIds, dates: allDates, blocks: [] };
 
     const minDate = new Date(allDates[0]);
     const maxDate = new Date(allDates[allDates.length - 1]);
     const totalDays = Math.max(1, Math.ceil((maxDate.getTime() - minDate.getTime()) / 86400000) + 1);
 
     // Group consecutive recipe runs per mill
-    const blocks: { mill: string; recipe: string; startDay: number; endDay: number; color: string }[] = [];
-    for (const mill of millIds) {
-      const millSched = schedule.filter((s) => s.mill_id === mill).sort((a, b) => a.date.localeCompare(b.date));
+    const blocks: { mill: string; millId: string; recipe: string; startDay: number; endDay: number; color: string }[] = [];
+    for (const millId of millIds) {
+      const millName = millNameMap[millId] || millId;
+      const millSched = schedule.filter((s) => s.mill_id === millId).sort((a, b) => a.date.localeCompare(b.date));
       let current: { recipe: string; start: number; end: number } | null = null;
       for (const row of millSched) {
         const day = Math.ceil((new Date(row.date).getTime() - minDate.getTime()) / 86400000) + 1;
@@ -108,17 +146,17 @@ export default function Operations() {
           current.end = day;
         } else {
           if (current) {
-            blocks.push({ mill, recipe: current.recipe, startDay: current.start, endDay: current.end, color: getRecipeColor(current.recipe) });
+            blocks.push({ mill: millName, millId, recipe: current.recipe, startDay: current.start, endDay: current.end, color: getRecipeColor(current.recipe) });
           }
           current = { recipe, start: day, end: day };
         }
       }
       if (current) {
-        blocks.push({ mill, recipe: current.recipe, startDay: current.start, endDay: current.end, color: getRecipeColor(current.recipe) });
+        blocks.push({ mill: millName, millId, recipe: current.recipe, startDay: current.start, endDay: current.end, color: getRecipeColor(current.recipe) });
       }
     }
 
-    return { mills: millIds, dates: allDates, totalDays, blocks };
+    return { mills, millIds, dates: allDates, totalDays, blocks };
   })();
 
   // Build ledger from capacity data
@@ -132,8 +170,25 @@ export default function Operations() {
       planned: Math.round(row.scheduled_hours),
       variance: Math.round(variance),
       status,
+      period: row.period || "",
     };
   });
+
+  // Format date range for display
+  const formatDateRange = () => {
+    if (!queryParams.from_date || !queryParams.to_date) return "";
+    try {
+      const from = new Date(queryParams.from_date);
+      const to = new Date(queryParams.to_date);
+      const fromStr = from.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+      const toStr = to.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+      return `${fromStr} to ${toStr}`;
+    } catch {
+      return `${queryParams.from_date} to ${queryParams.to_date}`;
+    }
+  };
+
+  const dateRangeText = formatDateRange();
 
   const handleLedgerClick = (mill: string, status: "ok" | "warning" | "danger") => {
     if (status === "ok") return;
@@ -173,57 +228,168 @@ export default function Operations() {
       </div>
 
       {/* Gantt Chart */}
-      <ChartContainer title="Mill Schedule Timeline" subtitle={`Recipe runs (${ganttData.dates.length} days)`} className="mb-6">
-        <div className="overflow-x-auto">
-          <div className="min-w-[700px]">
-            {ganttData.mills.map((mill) => (
-              <div key={mill} className="mb-2 flex items-center">
-                <div className="w-20 text-sm font-semibold text-foreground truncate">{mill}</div>
-                <div className="relative flex-1 h-10 rounded-md bg-accent/30">
-                  {ganttData.blocks
-                    .filter((b) => b.mill === mill)
-                    .map((block, i) => {
-                      const total = ganttData.totalDays || 14;
+      <ChartContainer title="Mill Schedule Timeline" subtitle={`Recipe runs across ${ganttData.dates.length} days${dateRangeText ? ` (${dateRangeText})` : ""}`} className="mb-6">
+        {ganttData.mills.length > 0 ? (() => {
+          const total = ganttData.totalDays || 14;
+          // Build date labels from the actual date range
+          const dateLabels: { label: string; dayNum: number }[] = [];
+          if (ganttData.dates.length > 0) {
+            const minDate = new Date(ganttData.dates[0]);
+            for (let d = 0; d < total; d++) {
+              const dt = new Date(minDate.getTime() + d * 86400000);
+              dateLabels.push({
+                label: dt.toLocaleDateString("en-US", { day: "numeric", month: "short" }),
+                dayNum: d + 1,
+              });
+            }
+          }
+          // Collect unique recipes for legend
+          const uniqueRecipes = [...new Set(ganttData.blocks.map((b) => b.recipe))];
+
+          return (
+            <div className="space-y-4">
+              {/* Scrollable Gantt area */}
+              <div className="overflow-x-auto pb-2">
+                <div style={{ minWidth: Math.max(700, total * 48) }}>
+                  {/* Date header row */}
+                  <div className="flex items-end mb-1" style={{ paddingLeft: 140 }}>
+                    {dateLabels.map((dl, i) => {
+                      // Show every label if ≤ 14 days, else show every Nth
+                      const step = total <= 14 ? 1 : total <= 30 ? 2 : 4;
                       return (
                         <div
                           key={i}
-                          className="absolute top-1 bottom-1 flex items-center justify-center rounded-md text-[10px] font-semibold text-white shadow-sm overflow-hidden"
-                          style={{
-                            left: `${((block.startDay - 1) / total) * 100}%`,
-                            width: `${Math.max(2, ((block.endDay - block.startDay + 1) / total) * 100)}%`,
-                            backgroundColor: block.color,
-                          }}
-                          title={`${block.recipe} (Day ${block.startDay}-${block.endDay})`}
+                          className="text-center border-l border-border/40"
+                          style={{ width: `${100 / total}%` }}
                         >
-                          {block.recipe.split(" ")[0]}
+                          {i % step === 0 ? (
+                            <span className="text-[10px] font-medium text-muted-foreground leading-tight">
+                              {dl.label}
+                            </span>
+                          ) : null}
                         </div>
                       );
                     })}
+                  </div>
+
+                  {/* Mill rows */}
+                  {ganttData.mills.map((mill, idx) => {
+                    const millId = ganttData.millIds[idx];
+                    const millBlocks = ganttData.blocks.filter((b) => b.millId === millId);
+                    return (
+                      <div key={millId} className="flex items-center group">
+                        {/* Mill name */}
+                        <div
+                          className="flex-shrink-0 pr-3 text-sm font-semibold text-foreground truncate"
+                          style={{ width: 140 }}
+                          title={mill}
+                        >
+                          {mill}
+                        </div>
+
+                        {/* Timeline bar */}
+                        <div
+                          className="relative flex-1 border-b border-border/30 group-hover:bg-accent/20 transition-colors"
+                          style={{ height: 44 }}
+                        >
+                          {/* Vertical gridlines */}
+                          {dateLabels.map((_, gi) => (
+                            <div
+                              key={gi}
+                              className="absolute top-0 bottom-0 border-l border-border/20"
+                              style={{ left: `${(gi / total) * 100}%` }}
+                            />
+                          ))}
+
+                          {/* Recipe blocks */}
+                          {millBlocks.map((block, i) => {
+                            const leftPct = ((block.startDay - 1) / total) * 100;
+                            const widthPct = Math.max(
+                              100 / total * 0.6,
+                              ((block.endDay - block.startDay + 1) / total) * 100
+                            );
+                            const durationDays = block.endDay - block.startDay + 1;
+                            return (
+                              <div
+                                key={i}
+                                className="absolute top-[5px] bottom-[5px] flex items-center rounded-md shadow-sm cursor-pointer transition-all hover:brightness-110 hover:shadow-md hover:scale-y-110 origin-center z-10 overflow-hidden"
+                                style={{
+                                  left: `${leftPct}%`,
+                                  width: `${widthPct}%`,
+                                  backgroundColor: block.color,
+                                }}
+                                title={`${block.recipe}\nDays ${block.startDay}–${block.endDay} (${durationDays} day${durationDays > 1 ? "s" : ""})`}
+                              >
+                                <span className="text-[11px] font-semibold text-white truncate px-2 drop-shadow-sm w-full text-center">
+                                  {durationDays >= 3 ? block.recipe : block.recipe.split(" ")[0]}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            ))}
-            {ganttData.mills.length === 0 && (
-              <p className="py-8 text-center text-sm text-muted-foreground">No schedule data available.</p>
-            )}
-          </div>
-        </div>
+
+              {/* Recipe legend */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2 border-t border-border/40">
+                <span className="text-xs font-medium text-muted-foreground mr-1">Recipes:</span>
+                {uniqueRecipes.map((recipe) => {
+                  const color = getRecipeColor(recipe);
+                  return (
+                    <div key={recipe} className="flex items-center gap-1.5">
+                      <div className="flex items-center">
+                        {/* Left bar */}
+                        <div
+                          className="w-1.5 h-1 rounded-l"
+                          style={{ backgroundColor: color }}
+                        />
+                        {/* Circle with white center */}
+                        <div
+                          className="w-4 h-4 rounded-full flex items-center justify-center"
+                          style={{ backgroundColor: color }}
+                        >
+                          <div className="w-2 h-2 rounded-full bg-white" />
+                        </div>
+                        {/* Right bar */}
+                        <div
+                          className="w-1.5 h-1 rounded-r"
+                          style={{ backgroundColor: color }}
+                        />
+                      </div>
+                      <span className="text-xs text-muted-foreground">{recipe}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })() : (
+          <p className="py-8 text-center text-sm text-muted-foreground">No schedule data available.</p>
+        )}
       </ChartContainer>
 
       {/* Capacity Ledger */}
-      <ChartContainer title="Capacity Ledger" subtitle="Available vs Planned hours per mill">
+      <ChartContainer 
+        title="Capacity Ledger" 
+        subtitle={dateRangeText ? `Available vs Planned hours per mill (${dateRangeText})` : "Available vs Planned hours per mill"}
+      >
         {ledger.length > 0 ? (
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-secondary">
-                {["Mill", "Available Hours", "Planned Hours", "Variance", "Status"].map((h) => (
+                {["Mill", "Period", "Available Hours", "Planned Hours", "Variance", "Status"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase text-muted-foreground">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {ledger.map((row, i) => (
-                <tr key={row.mill} className={cn("border-t border-border", i % 2 === 0 ? "bg-card" : "bg-accent/20")}>
+                <tr key={`${row.mill}-${row.period}`} className={cn("border-t border-border", i % 2 === 0 ? "bg-card" : "bg-accent/20")}>
                   <td className="px-4 py-3 font-semibold">{row.mill}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{row.period || "N/A"}</td>
                   <td className="px-4 py-3 font-mono">{row.available}</td>
                   <td className="px-4 py-3 font-mono">{row.planned}</td>
                   <td className="px-4 py-3 font-mono">{row.variance}</td>

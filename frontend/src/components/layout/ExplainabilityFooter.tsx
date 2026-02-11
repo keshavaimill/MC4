@@ -45,11 +45,11 @@ export function ExplainabilityFooter() {
   const [activeSection, setActiveSection] = useState<string | null>(null);
 
   return (
-    <footer className="sticky bottom-0 z-40 border-t-2 border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+    <footer className="sticky bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       {/* Collapsed bar */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex h-10 w-full items-center justify-between px-6 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        className="flex h-10 w-full items-center justify-between px-6 text-xs text-muted-foreground transition-colors duration-200 ease-out hover:text-foreground"
       >
         <div className="flex items-center gap-3">
           <Info className="h-3.5 w-3.5 text-primary" />

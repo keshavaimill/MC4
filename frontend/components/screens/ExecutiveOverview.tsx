@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { getPeriodFromDate } from '@/lib/period';
 import { TrendingUp, TrendingDown, AlertTriangle, DollarSign, Settings, Activity, BarChart3, Sparkles } from 'lucide-react';
@@ -13,6 +13,7 @@ import {
   Tooltip,
   Legend,
   ReferenceLine,
+  ResponsiveContainer,
 } from 'recharts';
 
 interface ExecutiveOverviewProps {
@@ -28,57 +29,84 @@ interface KPIs {
   risk: { avg_wheat_price: number; price_change_pct: number };
 }
 
+interface RecipeTimeItem {
+  recipe_name?: string;
+  recipe_id?: string | number;
+  scheduled_hours?: number;
+  duration_hours?: number;
+}
+
+interface CapacityItem {
+  available_hours: number;
+}
+
+interface ChartDataItem {
+  recipe: string;
+  hours: number;
+}
+
 export default function ExecutiveOverview({ horizon, fromDate, toDate }: ExecutiveOverviewProps) {
   const [kpis, setKpis] = useState<KPIs | null>(null);
   const [loading, setLoading] = useState(true);
-  const [recipeTimeData, setRecipeTimeData] = useState<any[]>([]);
-  const [capacityData, setCapacityData] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [recipeTimeData, setRecipeTimeData] = useState<RecipeTimeItem[]>([]);
+  const [capacityData, setCapacityData] = useState<CapacityItem[]>([]);
   const [chartMounted, setChartMounted] = useState(false);
   
   useEffect(() => {
     setChartMounted(true);
   }, []);
 
-  const chartData = React.useMemo(() => {
+  const period = useMemo(() => {
+    return getPeriodFromDate(fromDate ?? '', horizon);
+  }, [fromDate, horizon]);
+
+  const chartData = useMemo<ChartDataItem[]>(() => {
     if (!recipeTimeData || recipeTimeData.length === 0) return [];
+    
     const aggregated = recipeTimeData
-      .filter((item: any) => item && (item.recipe_name != null || item.recipe_id != null))
-      .reduce((acc: any[], item: any) => {
+      .filter((item) => item && (item.recipe_name != null || item.recipe_id != null))
+      .reduce((acc: ChartDataItem[], item) => {
         const recipeName = String(item.recipe_name ?? item.recipe_id ?? 'Unknown').trim();
         const rawHours = Number(item.scheduled_hours ?? item.duration_hours ?? 0);
         const hours = Number.isFinite(rawHours) && rawHours >= 0 ? rawHours : 0;
-        const existing = acc.find((x: any) => x.recipe === recipeName);
-        if (existing) existing.hours += hours;
-        else acc.push({ recipe: recipeName, hours });
+        
+        const existing = acc.find((x) => x.recipe === recipeName);
+        if (existing) {
+          existing.hours += hours;
+        } else {
+          acc.push({ recipe: recipeName, hours });
+        }
         return acc;
-      }, [] as any[])
-      .filter((x: any) => x.recipe && Number.isFinite(x.hours) && x.hours >= 0)
-      .sort((a: any, b: any) => b.hours - a.hours);
+      }, [])
+      .filter((x) => x.recipe && Number.isFinite(x.hours) && x.hours >= 0)
+      .sort((a, b) => b.hours - a.hours);
+    
     return aggregated;
   }, [recipeTimeData]);
 
-  const totalCapacity = React.useMemo(() => {
-    const sum = capacityData.reduce((sum: number, item: any) => {
-      const v = Number(item.available_hours);
-      return sum + (Number.isFinite(v) ? v : 0);
+  const totalCapacity = useMemo(() => {
+    const sum = capacityData.reduce((total, item) => {
+      const value = Number(item.available_hours);
+      return total + (Number.isFinite(value) ? value : 0);
     }, 0);
     return Number.isFinite(sum) ? sum : 0;
   }, [capacityData]);
 
-  const referenceLineY = React.useMemo(() => {
+  const referenceLineY = useMemo(() => {
     if (chartData.length === 0 || totalCapacity <= 0) return null;
     const y = totalCapacity / chartData.length;
     return Number.isFinite(y) ? y : null;
   }, [totalCapacity, chartData.length]);
 
-  const yAxisDomain = React.useMemo(() => {
-    if (chartData.length === 0) return [0, 1] as [number, number];
+  const yAxisDomain = useMemo<[number, number]>(() => {
+    if (chartData.length === 0) return [0, 1];
     const maxHours = Math.max(...chartData.map((d) => (Number.isFinite(d.hours) ? d.hours : 0)));
     const top = Number.isFinite(maxHours) && maxHours >= 0 ? Math.max(1, maxHours) : 1;
-    return [0, top] as [number, number];
+    return [0, top];
   }, [chartData]);
 
-  const safeChartData = React.useMemo(
+  const safeChartData = useMemo(
     () =>
       chartData.map((d) => ({
         recipe: d.recipe,
@@ -87,21 +115,23 @@ export default function ExecutiveOverview({ horizon, fromDate, toDate }: Executi
     [chartData]
   );
 
-  const period = React.useMemo(() => getPeriodFromDate(fromDate ?? '', horizon), [fromDate, horizon]);
-
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
+      
       const [kpisRes, recipeRes, capacityRes] = await Promise.all([
         api.get(`/api/kpis/executive?horizon=${horizon}&period=${encodeURIComponent(period)}`),
         api.get(`/api/planning/recipe?horizon=${horizon}&period=${encodeURIComponent(period)}`),
         api.get(`/api/capacity/mill?horizon=${horizon}&period=${encodeURIComponent(period)}`),
       ]);
+      
       setKpis(kpisRes.data);
       setRecipeTimeData(Array.isArray(recipeRes.data?.data) ? recipeRes.data.data : []);
       setCapacityData(Array.isArray(capacityRes.data?.data) ? capacityRes.data.data : []);
-    } catch (error: any) {
-      console.error('Error fetching data:', error);
+    } catch (err: any) {
+      console.error('Error fetching data:', err);
+      setError(err.message || 'Failed to fetch data');
       setRecipeTimeData([]);
       setCapacityData([]);
     } finally {
@@ -124,13 +154,13 @@ export default function ExecutiveOverview({ horizon, fromDate, toDate }: Executi
     );
   }
 
-  if (!kpis) {
+  if (error || !kpis) {
     return (
       <div className="flex items-center justify-center h-64 apple-card p-8">
         <div className="text-center">
           <AlertTriangle className="w-12 h-12 text-ink-tertiary mx-auto mb-3" />
           <p className="text-ink font-medium">Unable to load data</p>
-          <p className="text-sm text-ink-secondary mt-1">Please try again</p>
+          <p className="text-sm text-ink-secondary mt-1">{error || 'Please try again'}</p>
         </div>
       </div>
     );
@@ -219,7 +249,7 @@ export default function ExecutiveOverview({ horizon, fromDate, toDate }: Executi
             <div className="h-1.5 bg-surface-hover rounded-full overflow-hidden">
               <div 
                 className="h-full bg-brand rounded-full transition-all duration-1000"
-                style={{ width: `${kpis.recipe_time.utilization_pct}%` }}
+                style={{ width: `${Math.min(100, kpis.recipe_time.utilization_pct)}%` }}
               />
             </div>
           </div>
@@ -332,75 +362,75 @@ export default function ExecutiveOverview({ horizon, fromDate, toDate }: Executi
             </div>
           ) : (
             <>
-              <div className="w-full overflow-x-auto rounded-xl bg-surface-hover/50 p-4 border border-border-soft">
+              <div className="w-full rounded-xl bg-surface-hover/50 p-4 border border-border-soft">
                 {chartMounted && safeChartData.length > 0 ? (
-                  <BarChart
-                    data={safeChartData}
-                    width={700}
-                    height={400}
-                    margin={{ top: 16, right: 24, left: 16, bottom: 80 }}
-                    barCategoryGap="14%"
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e7" />
-                    <XAxis 
-                      dataKey="recipe" 
-                      angle={-40} 
-                      textAnchor="end" 
-                      height={80} 
-                      interval={0} 
-                      stroke="#6e6e73" 
-                      fontSize={11} 
-                      tick={{ fill: '#6e6e73' }} 
-                    />
-                    <YAxis 
-                      stroke="#6e6e73" 
-                      fontSize={12} 
-                      tick={{ fill: '#6e6e73' }} 
-                      width={44} 
-                      domain={yAxisDomain} 
-                      label={{ 
-                        value: 'Hours', 
-                        angle: -90, 
-                        position: 'insideLeft', 
-                        fill: '#6e6e73', 
-                        style: { fontSize: 11 } 
-                      }} 
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        borderRadius: 12, 
-                        border: '1px solid var(--color-border)', 
-                        background: 'var(--color-surface)',
-                        color: 'var(--color-text)',
-                        boxShadow: 'var(--shadow-card)'
-                      }} 
-                      cursor={{ fill: 'rgba(184, 92, 56, 0.08)' }} 
-                    />
-                    <Legend wrapperStyle={{ fontSize: 12, color: '#6e6e73' }} />
-                    <Bar 
-                      dataKey="hours" 
-                      fill="#B85C38" 
-                      name="Scheduled Hours" 
-                      radius={[8, 8, 0, 0]} 
-                      maxBarSize={72} 
-                      isAnimationActive={true} 
-                    />
-                    {referenceLineY != null && (
-                      <ReferenceLine
-                        y={referenceLineY}
-                        stroke="#6e6e73"
-                        strokeDasharray="5 5"
-                        strokeWidth={2}
-                        label={{ 
-                          value: 'Avg capacity', 
-                          position: 'right', 
-                          fill: '#6e6e73', 
-                          fontSize: 11,
-                          fontWeight: 600
-                        }}
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart
+                      data={safeChartData}
+                      margin={{ top: 16, right: 24, left: 16, bottom: 80 }}
+                      barCategoryGap="14%"
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e7" />
+                      <XAxis 
+                        dataKey="recipe" 
+                        angle={-40} 
+                        textAnchor="end" 
+                        height={80} 
+                        interval={0} 
+                        stroke="#6e6e73" 
+                        fontSize={11} 
+                        tick={{ fill: '#6e6e73' }} 
                       />
-                    )}
-                  </BarChart>
+                      <YAxis 
+                        stroke="#6e6e73" 
+                        fontSize={12} 
+                        tick={{ fill: '#6e6e73' }} 
+                        width={44} 
+                        domain={yAxisDomain} 
+                        label={{ 
+                          value: 'Hours', 
+                          angle: -90, 
+                          position: 'insideLeft', 
+                          fill: '#6e6e73', 
+                          style: { fontSize: 11 } 
+                        }} 
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          borderRadius: 12, 
+                          border: '1px solid var(--color-border)', 
+                          background: 'var(--color-surface)',
+                          color: 'var(--color-text)',
+                          boxShadow: 'var(--shadow-card)'
+                        }} 
+                        cursor={{ fill: 'rgba(184, 92, 56, 0.08)' }} 
+                      />
+                      <Legend wrapperStyle={{ fontSize: 12, color: '#6e6e73' }} />
+                      <Bar 
+                        dataKey="hours" 
+                        fill="#B85C38" 
+                        name="Scheduled Hours" 
+                        radius={[8, 8, 0, 0]} 
+                        maxBarSize={72} 
+                        isAnimationActive={true} 
+                      />
+                      {referenceLineY != null && (
+                        <ReferenceLine
+                          y={referenceLineY}
+                          stroke="#6e6e73"
+                          strokeDasharray="5 5"
+                          strokeWidth={2}
+                          label={{ 
+                            value: 'Avg capacity', 
+                            position: 'right', 
+                            fill: '#6e6e73', 
+                            fontSize: 11,
+                            fontWeight: 600
+                          }}
+                        />
+                      )}
+                    </BarChart>
+                  </ResponsiveContainer>
                 ) : (
                   <div className="flex items-center justify-center h-[400px] text-ink-secondary text-sm">
                     <div className="flex items-center gap-2">
@@ -422,9 +452,9 @@ export default function ExecutiveOverview({ horizon, fromDate, toDate }: Executi
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-4">
-                  {chartData.map((row: any, i: number) => (
+                  {chartData.map((row, i) => (
                     <div 
-                      key={i} 
+                      key={`${row.recipe}-${i}`}
                       className="group flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-hover border border-border-soft hover:border-brand/30 hover:bg-brand-muted/50 transition-all duration-200"
                     >
                       <div className="w-2 h-2 rounded-full bg-brand" />
@@ -446,7 +476,7 @@ export default function ExecutiveOverview({ horizon, fromDate, toDate }: Executi
       {/* AI Insight Card */}
       <div className="apple-card relative overflow-hidden p-6 bg-brand text-white border-0 shadow-card">
         <div className="relative flex items-start gap-4">
-          <div className="flex-shrink-0 text-3xl">🧠</div>
+          <div className="flex-shrink-0 text-3xl" role="img" aria-label="brain">🧠</div>
           <div className="flex-1">
             <h3 className="text-lg font-semibold mb-2">Insight</h3>
             <p className="text-sm text-white/95 leading-relaxed">

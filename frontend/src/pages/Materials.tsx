@@ -5,7 +5,8 @@ import { ChartContainer } from "@/components/dashboard/ChartContainer";
 import { useFilters } from "@/context/FilterContext";
 import { fetchRawMaterialsKpis, fetchRawMaterial, type RawMaterialsKpis } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Globe, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import WheatOriginMap from "@/components/WheatOriginMap";
 
 interface RawMaterialRow {
   period: string;
@@ -39,7 +40,7 @@ function LevelBadge({ level }: { level: string }) {
 }
 
 export default function Materials() {
-  const { queryParams } = useFilters();
+  const { queryParams, kpiQueryParams } = useFilters();
 
   const [kpis, setKpis] = useState<RawMaterialsKpis | null>(null);
   const [rawData, setRawData] = useState<RawMaterialRow[]>([]);
@@ -49,8 +50,8 @@ export default function Materials() {
     let cancelled = false;
     setLoading(true);
     Promise.all([
-      fetchRawMaterialsKpis(queryParams),
-      fetchRawMaterial(queryParams),
+      fetchRawMaterialsKpis(kpiQueryParams),     // KPIs use future-only dates
+      fetchRawMaterial(queryParams),              // Data tables use full range
     ])
       .then(([kpiData, rmData]) => {
         if (cancelled) return;
@@ -64,7 +65,7 @@ export default function Materials() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [queryParams.from_date, queryParams.to_date, queryParams.scenario, queryParams.horizon]);
+  }, [queryParams.from_date, queryParams.to_date, queryParams.scenario, queryParams.horizon, kpiQueryParams.from_date, kpiQueryParams.to_date]);
 
   const matKpis = kpis
     ? [
@@ -150,40 +151,14 @@ export default function Materials() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Map placeholder */}
+        {/* Interactive Wheat Origin Map */}
         <ChartContainer title="Wheat Origin Map" subtitle="Global sourcing by volume and cost">
-          <div className="relative flex h-[360px] items-center justify-center rounded-lg bg-accent/30">
-            <Globe className="h-16 w-16 text-muted-foreground/30" />
-            <div className="absolute inset-0 p-4">
-              {byCountry.map((origin) => {
-                const left = ((origin.lng + 180) / 360) * 100;
-                const top = ((90 - origin.lat) / 180) * 100;
-                const volPct = totalVolume > 0 ? (origin.volume / totalVolume) * 100 : 10;
-                const size = 12 + volPct * 0.8;
-                const color =
-                  origin.avgCost > avgCostAll * 1.1
-                    ? "bg-destructive"
-                    : origin.avgCost > avgCostAll * 0.95
-                      ? "bg-warning"
-                      : "bg-success";
-                return (
-                  <div
-                    key={origin.country}
-                    className="group absolute"
-                    style={{ left: `${left}%`, top: `${top}%`, transform: "translate(-50%,-50%)" }}
-                  >
-                    <div
-                      className={cn("rounded-full opacity-70 transition-all group-hover:opacity-100 group-hover:scale-125", color)}
-                      style={{ width: size, height: size }}
-                    />
-                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 whitespace-nowrap rounded bg-card px-2 py-1 text-[10px] font-medium shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                      {origin.country} &mdash; {volPct.toFixed(1)}% vol, SAR {origin.avgCost.toFixed(0)}/ton
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <WheatOriginMap
+            origins={byCountry}
+            totalVolume={totalVolume}
+            avgCostAll={avgCostAll}
+            height={360}
+          />
         </ChartContainer>
 
         {/* Country Price Table */}

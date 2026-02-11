@@ -67,6 +67,8 @@ export interface RecipePlanningKpis {
   avg_changeovers: number;
   wheat_cost_index: number;
   waste_impact_pct: number;
+  cost_impact_pct: number;
+  risk_score: number;
 }
 
 export const fetchRecipePlanningKpis = (p: Record<string, string | undefined>) =>
@@ -173,3 +175,11 @@ export interface ChatbotResponse {
 
 export const chatbotQuery = (question: string) =>
   post<ChatbotResponse>("/api/chatbot/query", { question });
+
+export const emailChatbotInsight = (insight: {
+  question: string;
+  answer: string;
+  sql_query?: string;
+  data?: Record<string, unknown>[];
+  chart?: string;
+}) => post<{ success: boolean; message: string }>("/api/chatbot/email", insight);

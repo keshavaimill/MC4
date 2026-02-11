@@ -647,11 +647,11 @@ def generate_fact_mill_capacity(time_dim, dim_mill):
 def generate_fact_mill_schedule_daily(fact_recipe_demand, fact_mill_capacity,
                                      map_recipe_mill, dim_recipe):
     """
-    Sequential per-day scheduler (one recipe at a time per mill).
-    Returns Gantt-ready rows.
+    Proportional per-day scheduler: distributes mill capacity across recipes
+    in proportion to their demand share so every recipe with demand gets
+    scheduled time.  Returns Gantt-ready rows.
 
-    Uses recipe-specific changeover times from dim_recipe instead of
-    a fixed penalty.
+    Uses recipe-specific changeover times from dim_recipe.
     """
     # Build changeover time lookup from dim_recipe
     changeover_dict = dim_recipe.set_index("recipe_id")["changeover_time_hrs"].to_dict()
@@ -667,12 +667,49 @@ def generate_fact_mill_schedule_daily(fact_recipe_demand, fact_mill_capacity,
 
     demand_by_date = {}
     for date, grp in fact_recipe_demand.groupby("date"):
-        demand_by_date[date] = grp.sort_values("required_tons", ascending=False).to_dict("records")
+        demand_by_date[date] = grp.to_dict("records")
 
-    mill_ids = fact_mill_capacity["mill_id"].unique()
+    mill_ids = sorted(fact_mill_capacity["mill_id"].unique())
     schedule = []
 
     for date, day_recipes in demand_by_date.items():
+        # Compute total demand hours for proportional allocation
+        demand_hours = {}
+        for rec in day_recipes:
+            rid = rec["recipe_id"]
+            req_tons = rec["required_tons"]
+            if req_tons <= 0:
+                continue
+            # Use the average rate across mills for proportional split
+            tphs = [rates_dict.get((m, rid)) for m in mill_ids
+                     if rates_dict.get((m, rid)) and rates_dict[(m, rid)] > 0]
+            if not tphs:
+                continue
+            avg_tph = sum(tphs) / len(tphs)
+            demand_hours[rid] = req_tons / avg_tph
+
+        total_demand_hrs = sum(demand_hours.values())
+        if total_demand_hrs <= 0:
+            continue
+
+        # Compute total available capacity across all mills for this day
+        total_cap = sum(cap_dict.get((date, m), 0) for m in mill_ids)
+
+        # Reserve hours for changeovers (estimate: n_recipes-1 changeovers per mill)
+        n_recipes_with_demand = len(demand_hours)
+        avg_co = np.mean([changeover_dict.get(r, 1.5) for r in demand_hours]) if demand_hours else 1.0
+        total_co_reserve = len(mill_ids) * max(0, n_recipes_with_demand - 1) * avg_co
+
+        usable_cap = max(0, total_cap - total_co_reserve)
+
+        # Proportional share of capacity for each recipe
+        shares = {}
+        for rid, hrs in demand_hours.items():
+            shares[rid] = hrs / total_demand_hrs
+
+        # Schedule proportionally across mills
+        remaining_target = {rid: shares[rid] * usable_cap for rid in shares}
+
         for mill_id in mill_ids:
             avail = cap_dict.get((date, mill_id), 0)
             if avail <= 0:
@@ -681,22 +718,25 @@ def generate_fact_mill_schedule_daily(fact_recipe_demand, fact_mill_capacity,
             cur = 0.0
             prev = None
 
-            for rec in day_recipes:
-                rid = rec["recipe_id"]
-                req_tons = rec["required_tons"]
+            # Sort recipes by their remaining target (descending)
+            sorted_rids = sorted(remaining_target.keys(),
+                                 key=lambda r: remaining_target.get(r, 0), reverse=True)
+
+            for rid in sorted_rids:
+                target = remaining_target.get(rid, 0)
+                if target <= 0.1:
+                    continue
+
                 tph = rates_dict.get((mill_id, rid))
                 if tph is None or tph <= 0:
                     continue
 
-                hours_needed = req_tons / tph
-                # Use recipe-specific changeover time
                 co = changeover_dict.get(rid, 1.5) if (prev is not None and prev != rid) else 0
-
                 if cur + co >= avail:
                     break
 
-                remaining = avail - cur - co
-                actual = min(hours_needed, remaining)
+                remaining_mill = avail - cur - co
+                actual = min(target, remaining_mill)
                 if actual <= 0:
                     continue
 
@@ -713,6 +753,7 @@ def generate_fact_mill_schedule_daily(fact_recipe_demand, fact_mill_capacity,
                     "tons_produced": tons,
                 })
 
+                remaining_target[rid] = max(0, remaining_target[rid] - actual)
                 cur += co + actual
                 prev = rid
                 if cur >= avail:

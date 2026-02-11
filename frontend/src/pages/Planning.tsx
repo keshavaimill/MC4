@@ -6,7 +6,7 @@ import { useFilters } from "@/context/FilterContext";
 import { fetchRecipePlanningKpis, fetchRecipeEligibility, fetchRecipePlanning, type RecipePlanningKpis } from "@/lib/api";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
-import { Check, X, AlertTriangle, Loader2 } from "lucide-react";
+import { Check, X, AlertTriangle, Loader2, RotateCcw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface EligibilityRow {
@@ -26,10 +26,11 @@ interface RecipeRow {
   tons_produced: number;
   cost_index: number;
   avg_waste_pct: number;
+  cost_per_hour: number;
 }
 
 export default function Planning() {
-  const { queryParams } = useFilters();
+  const { queryParams, kpiQueryParams } = useFilters();
 
   const [kpis, setKpis] = useState<RecipePlanningKpis | null>(null);
   const [eligibility, setEligibility] = useState<EligibilityRow[]>([]);
@@ -44,9 +45,9 @@ export default function Planning() {
     let cancelled = false;
     setLoading(true);
     Promise.all([
-      fetchRecipePlanningKpis(queryParams),
+      fetchRecipePlanningKpis(kpiQueryParams),   // KPIs use future-only dates
       fetchRecipeEligibility(),
-      fetchRecipePlanning(queryParams),
+      fetchRecipePlanning(queryParams),            // Data uses full range
     ])
       .then(([kpiData, eligData, recData]) => {
         if (cancelled) return;
@@ -69,7 +70,7 @@ export default function Planning() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [queryParams.from_date, queryParams.to_date, queryParams.scenario, queryParams.horizon]);
+  }, [queryParams.from_date, queryParams.to_date, queryParams.scenario, queryParams.horizon, kpiQueryParams.from_date, kpiQueryParams.to_date]);
 
   const handleSlider = useCallback((id: string, val: number[]) => {
     setIsCalculating(true);
@@ -77,18 +78,27 @@ export default function Planning() {
     setTimeout(() => setIsCalculating(false), 300);
   }, []);
 
+  // Calculate total hours from slider allocations (user-adjusted values)
   const totalHours = useMemo(() => Object.values(allocations).reduce((a, b) => a + b, 0), [allocations]);
+  // Use backend values for capacity and initial planned hours
   const totalCapacity = kpis?.available_mill_hours || 0;
+  const backendPlannedHours = kpis?.planned_recipe_hours || 0;
+  // Check if user has adjusted sliders (if totalHours differs from backend, user has made changes)
+  const hasUserAdjustments = Math.abs(totalHours - backendPlannedHours) > 0.1;
+  // Calculate slack/shortfall: use slider values if adjusted, otherwise use backend value
+  const slackShortfall = hasUserAdjustments 
+    ? totalCapacity - totalHours 
+    : (kpis?.slack_shortfall_hours ?? (totalCapacity - totalHours));
   const overload = Math.max(0, totalHours - totalCapacity);
 
-  // Recipe info for display
+  // Recipe info for display — uses real cost_per_hour from backend
   const recipeInfo = useMemo(() => {
-    const map: Record<string, { name: string; costIndex: number; wastePct: number; baseHours: number }> = {};
+    const map: Record<string, { name: string; costPerHour: number; wastePct: number; baseHours: number }> = {};
     for (const r of recipeData) {
       if (!map[r.recipe_id]) {
         map[r.recipe_id] = {
           name: r.recipe_name || r.recipe_id,
-          costIndex: r.cost_index || 0,
+          costPerHour: r.cost_per_hour || 0,
           wastePct: r.avg_waste_pct || 0,
           baseHours: 0,
         };
@@ -98,12 +108,14 @@ export default function Planning() {
     return map;
   }, [recipeData]);
 
+  // Cost delta: compare current slider allocation cost vs original baseline cost
   const costDelta = useMemo(() => {
-    const baseTotal = Object.entries(recipeInfo).reduce((s, [id, r]) => s + r.baseHours * r.costIndex, 0);
-    const currTotal = Object.entries(allocations).reduce((s, [id, hrs]) => s + hrs * (recipeInfo[id]?.costIndex || 0), 0);
+    const baseTotal = Object.entries(recipeInfo).reduce((s, [, r]) => s + r.baseHours * r.costPerHour, 0);
+    const currTotal = Object.entries(allocations).reduce((s, [id, hrs]) => s + hrs * (recipeInfo[id]?.costPerHour || 0), 0);
     return baseTotal > 0 ? (((currTotal - baseTotal) / baseTotal) * 100).toFixed(1) : "0";
   }, [allocations, recipeInfo]);
 
+  // Waste delta: change in weighted-average waste %
   const wasteDelta = useMemo(() => {
     const baseWaste = Object.entries(recipeInfo).reduce((s, [, r]) => s + r.baseHours * r.wastePct, 0);
     const baseTotalHrs = Object.values(recipeInfo).reduce((s, r) => s + r.baseHours, 0);
@@ -113,7 +125,20 @@ export default function Planning() {
     return (currAvg - baseAvg).toFixed(2);
   }, [allocations, recipeInfo, totalHours]);
 
-  const riskScore = Math.min(100, Math.round(overload / 10 + Math.abs(Number(costDelta)) * 2 + Math.abs(Number(wasteDelta)) * 10));
+  // Risk score: start from backend baseline, adjust for slider deviations
+  const baselineRisk = kpis?.risk_score ?? 0;
+  const riskScore = useMemo(() => {
+    // Backend gives the baseline risk; slider changes add incremental risk
+    const sliderRiskDelta =
+      (overload / Math.max(1, totalCapacity)) * 80 +       // overload pressure
+      Math.abs(Number(costDelta)) * 1.5 +                   // cost deviation
+      Math.abs(Number(wasteDelta)) * 8;                      // waste deviation
+    // When sliders match the original, riskScore = backend baseline
+    const hasSliderChange = Object.entries(allocations).some(
+      ([id, hrs]) => Math.abs(hrs - (recipeInfo[id]?.baseHours || 0)) > 1
+    );
+    return Math.min(100, Math.round(hasSliderChange ? baselineRisk + sliderRiskDelta : baselineRisk));
+  }, [baselineRisk, overload, totalCapacity, costDelta, wasteDelta, allocations, recipeInfo]);
 
   // Build eligibility matrix
   const eligibilityMatrix = useMemo(() => {
@@ -129,16 +154,20 @@ export default function Planning() {
     return { flourTypes, recipes, matrix };
   }, [eligibility]);
 
+  // Effective cost impact: backend baseline + slider adjustment
+  const baselineCostImpact = kpis?.cost_impact_pct ?? 0;
+  const effectiveCostImpact = useMemo(() => {
+    return Number(costDelta) !== 0 ? baselineCostImpact + Number(costDelta) : baselineCostImpact;
+  }, [baselineCostImpact, costDelta]);
+
   const planningKpis = kpis
     ? [
-        { label: "Planned Recipe Hours", value: Math.round(totalHours).toLocaleString(), unit: "hrs", delta: totalHours > totalCapacity ? -3 : 2, driver: `vs capacity of ${totalCapacity.toLocaleString()} hrs` },
-        { label: "Available Mill Hours", value: Math.round(totalCapacity).toLocaleString(), unit: "hrs", delta: 0, driver: "Period capacity" },
-        { label: "Slack / Shortfall", value: Math.round(totalCapacity - totalHours).toLocaleString(), unit: "hrs", delta: totalCapacity - totalHours, driver: totalHours > totalCapacity ? "Shortfall (overload)" : "Slack within capacity" },
-        { label: "Changeovers", value: kpis.avg_changeovers.toString(), delta: 0, driver: "Recipe switches" },
-        { label: "Wheat Cost Index", value: kpis.wheat_cost_index.toFixed(0), unit: "SAR", delta: 0, driver: "Weighted avg cost" },
+        { label: "Planned Recipe Hours", value: Math.round(totalHours).toLocaleString(), unit: "hrs", driver: `vs capacity of ${totalCapacity.toLocaleString()} hrs` },
+        { label: "Available Mill Hours", value: Math.round(totalCapacity).toLocaleString(), unit: "hrs", driver: "Period capacity" },
+        { label: "Slack / Shortfall", value: Math.round(slackShortfall).toLocaleString(), unit: "hrs", driver: slackShortfall < 0 ? "Shortfall (overload)" : "Slack within capacity" },
+        { label: "Wheat Cost Index", value: kpis.wheat_cost_index.toFixed(0), unit: "SAR", driver: "Weighted avg cost" },
         { label: "Waste Impact", value: kpis.waste_impact_pct.toFixed(1), unit: "%", delta: -kpis.waste_impact_pct, driver: "Period waste rate" },
-        { label: "Cost Impact", value: `${Number(costDelta) > 0 ? "+" : ""}${costDelta}`, unit: "%", delta: Number(costDelta), driver: "vs baseline" },
-        { label: "Risk Score", value: riskScore.toString(), unit: "/100", delta: -riskScore, driver: riskScore > 50 ? "High risk" : "Acceptable" },
+        { label: "Cost Impact", value: `${effectiveCostImpact > 0 ? "+" : ""}${effectiveCostImpact.toFixed(1)}`, unit: "%", delta: effectiveCostImpact, driver: `Baseline ${(kpis.cost_impact_pct ?? 0).toFixed(1)}% + slider adj` },
       ]
     : [];
 
@@ -156,7 +185,7 @@ export default function Planning() {
   return (
     <DashboardLayout>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Recipe & Mill Planning</h1>
+        <h1 className="text-2xl font-bold text-foreground">Production Planning</h1>
         <p className="text-sm text-muted-foreground">Adjust recipe time allocation and see real-time impact</p>
       </div>
 
@@ -215,25 +244,85 @@ export default function Planning() {
           <div className="space-y-6 py-2">
             {Object.entries(allocations).map(([id, hrs]) => {
               const info = recipeInfo[id];
+              const base = info?.baseHours || 0;
+              // Fixed max/min/step derived from the original baseline — never changes
+              const sliderMax = Math.max(1000, Math.round(base * 1.5));
+              const sliderMin = 0;
+              const sliderStep = base > 10000 ? 100 : base > 1000 ? 50 : 10;
+              const pctChange = base > 0 ? ((hrs - base) / base) * 100 : 0;
+              const hasChanged = Math.abs(hrs - base) > sliderStep;
+
               return (
-                <div key={id}>
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-sm font-medium text-foreground">{info?.name || id}</span>
-                    <span className={cn("font-mono text-sm font-bold", hrs !== (info?.baseHours || 0) && "animate-pulse-amber rounded px-1")}>
-                      {Math.round(hrs).toLocaleString()} hrs
-                    </span>
+                <div key={id} className="rounded-lg border border-border/50 bg-accent/20 px-4 py-3">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-sm font-semibold text-foreground">{info?.name || id}</span>
+                    <div className="flex items-center gap-2">
+                      {hasChanged && (
+                        <span className={cn(
+                          "rounded-full px-2 py-0.5 text-[10px] font-bold",
+                          pctChange > 0 ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
+                        )}>
+                          {pctChange > 0 ? "+" : ""}{pctChange.toFixed(1)}%
+                        </span>
+                      )}
+                      <span className={cn(
+                        "font-mono text-sm font-bold tabular-nums transition-colors",
+                        hasChanged ? "text-primary" : "text-foreground"
+                      )}>
+                        {Math.round(hrs).toLocaleString()} hrs
+                      </span>
+                      {hasChanged && (
+                        <button
+                          type="button"
+                          onClick={() => setAllocations((prev) => ({ ...prev, [id]: base }))}
+                          className="ml-1 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                          title="Reset to baseline"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mb-1 text-[10px] text-muted-foreground">
+                    Baseline: {Math.round(base).toLocaleString()} hrs
+                    {info?.costPerHour ? ` · Cost: SAR ${(info.costPerHour / 1000).toFixed(1)}k/hr` : ""}
+                    {info?.wastePct ? ` · Waste: ${info.wastePct.toFixed(1)}%` : ""}
                   </div>
                   <Slider
                     value={[hrs]}
                     onValueChange={(val) => handleSlider(id, val)}
-                    min={0}
-                    max={Math.max(800, Math.round(hrs * 2))}
-                    step={10}
-                    className="[&_[role=slider]]:border-primary [&_[role=slider]]:bg-card [&_.relative]:bg-secondary [&_[data-orientation=horizontal]>.absolute]:bg-primary"
+                    min={sliderMin}
+                    max={sliderMax}
+                    step={sliderStep}
+                    className={cn(
+                      "[&_[role=slider]]:border-primary [&_[role=slider]]:bg-card [&_[role=slider]]:shadow-md [&_[role=slider]]:h-5 [&_[role=slider]]:w-5",
+                      "[&_.relative]:bg-secondary [&_[data-orientation=horizontal]>.absolute]:bg-primary",
+                      hasChanged && "[&_[data-orientation=horizontal]>.absolute]:bg-amber-500"
+                    )}
                   />
+                  <div className="mt-1 flex justify-between text-[9px] text-muted-foreground/60">
+                    <span>{sliderMin.toLocaleString()}</span>
+                    <span>{sliderMax.toLocaleString()}</span>
+                  </div>
                 </div>
               );
             })}
+            {Object.keys(allocations).length > 0 && Object.entries(allocations).some(([id, hrs]) => Math.abs(hrs - (recipeInfo[id]?.baseHours || 0)) > 1) && (
+              <button
+                type="button"
+                onClick={() => {
+                  const reset: Record<string, number> = {};
+                  for (const [id] of Object.entries(allocations)) {
+                    reset[id] = recipeInfo[id]?.baseHours || 0;
+                  }
+                  setAllocations(reset);
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset all to baseline
+              </button>
+            )}
           </div>
         </ChartContainer>
 

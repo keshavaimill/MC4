@@ -3,7 +3,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ChartContainer } from "@/components/dashboard/ChartContainer";
 import { useFilters } from "@/context/FilterContext";
 import { downloadReportCsv, emailReport } from "@/lib/api";
-import { FileText, Mail, Download, Calendar, Send, Loader2 } from "lucide-react";
+import { Mail, Download, Send, Loader2, ClipboardList, Gauge, TrendingUp, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -14,6 +14,7 @@ const reportDefinitions = [
     type: "automated" as const,
     schedule: "1st of each month",
     description: "Recipe scheduling across all mills",
+    icon: ClipboardList,
   },
   {
     id: "capacity-outlook",
@@ -21,6 +22,7 @@ const reportDefinitions = [
     type: "automated" as const,
     schedule: "Every Monday 8:00 AM",
     description: "Mill utilization and overload analysis",
+    icon: Gauge,
   },
   {
     id: "demand-forecast",
@@ -28,6 +30,7 @@ const reportDefinitions = [
     type: "on-demand" as const,
     schedule: "Manual",
     description: "SKU forecast breakdown by flour type",
+    icon: TrendingUp,
   },
   {
     id: "raw-material",
@@ -35,6 +38,7 @@ const reportDefinitions = [
     type: "on-demand" as const,
     schedule: "Manual",
     description: "Wheat sourcing, prices, and availability",
+    icon: Package,
   },
 ];
 
@@ -95,11 +99,17 @@ export default function Reports() {
                       report.type === "automated" ? "bg-primary/10" : "bg-muted"
                     )}
                   >
-                    {report.type === "automated" ? (
-                      <Calendar className="h-4 w-4 text-primary" />
-                    ) : (
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                    )}
+                    {(() => {
+                      const Icon = report.icon;
+                      return (
+                        <Icon
+                          className={cn(
+                            "h-4 w-4",
+                            report.type === "automated" ? "text-primary" : "text-muted-foreground"
+                          )}
+                        />
+                      );
+                    })()}
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">{report.title}</p>

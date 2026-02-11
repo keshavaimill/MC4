@@ -2,14 +2,12 @@ import { useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { KpiTile } from "@/components/dashboard/KpiTile";
 import { ChartContainer } from "@/components/dashboard/ChartContainer";
+import { SkuForecastTrendChart } from "@/components/dashboard/SkuForecastTrendChart";
 import { useFilters } from "@/context/FilterContext";
-import { fetchExecutiveKpis, fetchRecipePlanning, fetchMillCapacity, type ExecutiveKpis } from "@/lib/api";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  ReferenceLine,
-} from "recharts";
+import { fetchExecutiveKpis, fetchMillCapacity, type ExecutiveKpis } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Lightbulb, AlertTriangle, TrendingUp, ArrowRight, Loader2 } from "lucide-react";
+import { Lightbulb, AlertTriangle, TrendingUp } from "lucide-react";
+import { PageLoader } from "@/components/PageLoader";
 import { useToast } from "@/components/ui/use-toast";
 
 function UtilCell({ value }: { value: number }) {
@@ -28,10 +26,9 @@ function UtilCell({ value }: { value: number }) {
 
 export default function Executive() {
   const { toast } = useToast();
-  const { queryParams } = useFilters();
+  const { queryParams, kpiQueryParams } = useFilters();
 
   const [kpis, setKpis] = useState<ExecutiveKpis | null>(null);
-  const [recipeChart, setRecipeChart] = useState<Record<string, unknown>[]>([]);
   const [capacityData, setCapacityData] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -39,14 +36,12 @@ export default function Executive() {
     let cancelled = false;
     setLoading(true);
     Promise.all([
-      fetchExecutiveKpis(queryParams),
-      fetchRecipePlanning(queryParams),
-      fetchMillCapacity(queryParams),
+      fetchExecutiveKpis(kpiQueryParams),       // KPIs use future-only dates
+      fetchMillCapacity(queryParams),            // Data tables use full range (historical + future)
     ])
-      .then(([kpiData, recipeData, capData]) => {
+      .then(([kpiData, capData]) => {
         if (cancelled) return;
         setKpis(kpiData);
-        setRecipeChart(recipeData.data);
         setCapacityData(capData.data);
       })
       .catch((err) => {
@@ -56,7 +51,7 @@ export default function Executive() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [queryParams.from_date, queryParams.to_date, queryParams.scenario, queryParams.horizon]);
+  }, [queryParams.from_date, queryParams.to_date, queryParams.scenario, queryParams.horizon, kpiQueryParams.from_date, kpiQueryParams.to_date]);
 
   const executiveKpis = kpis
     ? [
@@ -64,59 +59,46 @@ export default function Executive() {
           label: "Total Demand",
           value: kpis.demand.total_tons.toLocaleString(undefined, { maximumFractionDigits: 0 }),
           unit: "tons",
-          delta: kpis.demand.growth_pct,
+          delta: undefined,
           driver: "Period-over-period change",
         },
         {
           label: "Recipe Time Util.",
           value: kpis.recipe_time.utilization_pct.toFixed(1),
           unit: "%",
-          delta: kpis.recipe_time.utilization_pct > 90 ? -2 : 2,
+          delta: undefined,
           driver: `${kpis.recipe_time.total_hours.toLocaleString(undefined, { maximumFractionDigits: 0 })} total hrs`,
         },
         {
           label: "Capacity Violations",
           value: kpis.capacity.overload_mills.toString(),
           unit: "mills",
-          delta: kpis.capacity.overload_mills > 0 ? -kpis.capacity.overload_mills : 0,
+          delta: undefined,
           driver: `Utilization at ${kpis.capacity.utilization_pct.toFixed(1)}%`,
         },
         {
           label: "Avg Wheat Price",
           value: `SAR ${kpis.risk.avg_wheat_price.toFixed(0)}`,
           unit: "",
-          delta: kpis.risk.price_change_pct,
+          delta: undefined,
           driver: "Per-ton wheat cost",
         },
         {
           label: "Waste Rate",
           value: kpis.waste.waste_rate_pct.toFixed(1),
           unit: "%",
-          delta: kpis.waste.delta_pct,
+          delta: undefined,
           driver: "vs previous period",
         },
         {
           label: "Vision 2030 Score",
           value: kpis.vision2030.score.toString(),
           unit: "/100",
-          delta: kpis.vision2030.delta,
+          delta: undefined,
           driver: "Sustainability composite",
         },
       ]
     : [];
-
-  // Build recipe chart data: group by recipe, stack by mill
-  const chartData = (() => {
-    const byRecipe: Record<string, Record<string, number>> = {};
-    for (const row of recipeChart) {
-      const recipeName = (row.recipe_name as string) || "Unknown";
-      const millId = (row.mill_id as string) || "?";
-      const hours = Number(row.scheduled_hours) || 0;
-      if (!byRecipe[recipeName]) byRecipe[recipeName] = {};
-      byRecipe[recipeName][millId] = (byRecipe[recipeName][millId] || 0) + hours;
-    }
-    return Object.entries(byRecipe).map(([recipe, mills]) => ({ recipe, ...mills }));
-  })();
 
   // Build capacity heatmap from mill capacity data
   const heatmapData = (() => {
@@ -134,10 +116,6 @@ export default function Executive() {
     }));
   })();
 
-  // Derive mill IDs for chart legend
-  const millIds = [...new Set(recipeChart.map((r) => r.mill_id as string))].filter(Boolean).sort();
-  const millColors = ["hsl(var(--primary))", "hsl(var(--warning))", "hsl(var(--success))", "#8B4513", "#6366f1"];
-
   const handleHeatmapClick = (mill: string, period: string, utilization: number) => {
     if (utilization < 95) return;
     toast({
@@ -150,92 +128,67 @@ export default function Executive() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex h-64 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-3 text-sm text-muted-foreground">Loading executive data...</span>
-        </div>
+        <PageLoader message="Loading executive data…" />
       </DashboardLayout>
     );
   }
 
   return (
     <DashboardLayout>
-      <div className="mb-6">
+      <div className="mb-4">
         <h1 className="text-2xl font-bold text-foreground">Executive Summary</h1>
         <p className="text-sm text-muted-foreground">Real-time overview of MC4 mill operations</p>
       </div>
 
       {/* KPI Strip */}
-      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-6">
         {executiveKpis.map((kpi) => (
           <KpiTile key={kpi.label} {...kpi} />
         ))}
       </div>
 
-      {/* Hero Chart + AI Brief */}
-      <div className="mb-6 grid gap-6 lg:grid-cols-[1fr_380px]">
-        <ChartContainer title="Recipe Time Demand vs Capacity" subtitle="Hours required per recipe across all mills">
-          <ResponsiveContainer width="100%" height={340}>
-            <BarChart data={chartData} barCategoryGap="20%">
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="recipe" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))" }} />
-              <Legend />
-              {millIds.map((mill, i) => (
-                <Bar
-                  key={mill}
-                  dataKey={mill}
-                  name={mill}
-                  stackId="a"
-                  fill={millColors[i % millColors.length]}
-                  radius={i === millIds.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
-                />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartContainer>
+      {/* SKU Forecast Trend Chart */}
+      <SkuForecastTrendChart className="mb-4" />
 
-        {/* AI Executive Brief */}
-        <div className="rounded-xl border-t-4 border-t-primary border border-border bg-card p-6 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <Lightbulb className="h-5 w-5 text-primary" />
-            <h3 className="font-semibold text-foreground">AI Executive Brief</h3>
+      {/* AI Executive Brief */}
+      <div className="mb-4 rounded-xl border-t-4 border-t-primary border border-border bg-card p-4 shadow-card">
+        <div className="mb-4 flex items-center gap-2">
+          <Lightbulb className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold text-foreground">AI Executive Brief</h3>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <div className="mb-1 flex items-center gap-1.5 font-medium text-foreground">
+              <TrendingUp className="h-3.5 w-3.5 text-primary" /> Key Driver
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {kpis
+                ? `Total demand at ${kpis.demand.total_tons.toLocaleString(undefined, { maximumFractionDigits: 0 })} tons (${kpis.demand.growth_pct > 0 ? "+" : ""}${kpis.demand.growth_pct.toFixed(1)}% change). Utilization at ${kpis.capacity.utilization_pct.toFixed(1)}%.`
+                : "Loading..."}
+            </p>
           </div>
-          <div className="space-y-4 text-sm">
-            <div>
-              <div className="mb-1 flex items-center gap-1.5 font-medium text-foreground">
-                <TrendingUp className="h-3.5 w-3.5 text-primary" /> Key Driver
-              </div>
-              <p className="text-muted-foreground">
-                {kpis
-                  ? `Total demand at ${kpis.demand.total_tons.toLocaleString(undefined, { maximumFractionDigits: 0 })} tons (${kpis.demand.growth_pct > 0 ? "+" : ""}${kpis.demand.growth_pct.toFixed(1)}% change). Utilization at ${kpis.capacity.utilization_pct.toFixed(1)}%.`
-                  : "Loading..."}
-              </p>
+          <div>
+            <div className="mb-1 flex items-center gap-1.5 font-medium text-foreground">
+              <AlertTriangle className="h-3.5 w-3.5 text-warning" /> Risk Factors
             </div>
-            <div>
-              <div className="mb-1 flex items-center gap-1.5 font-medium text-foreground">
-                <AlertTriangle className="h-3.5 w-3.5 text-warning" /> Risk Factors
-              </div>
-              <p className="text-muted-foreground">
-                {kpis
-                  ? `${kpis.capacity.overload_mills} mill(s) overloaded. Wheat price ${kpis.risk.price_change_pct > 0 ? "up" : "down"} ${Math.abs(kpis.risk.price_change_pct).toFixed(1)}%. Waste at ${kpis.waste.waste_rate_pct.toFixed(1)}%.`
-                  : "Loading..."}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {kpis && kpis.capacity.overload_mills > 0 && (
-                <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
-                  {kpis.capacity.overload_mills} overloaded
-                </span>
-              )}
-              <span className="rounded-full bg-warning/10 px-2.5 py-1 text-xs font-medium text-warning">
-                SAR {kpis?.risk.avg_wheat_price.toFixed(0)}/ton
+            <p className="text-sm text-muted-foreground">
+              {kpis
+                ? `${kpis.capacity.overload_mills} mill(s) overloaded. Wheat price ${kpis.risk.price_change_pct > 0 ? "up" : "down"} ${Math.abs(kpis.risk.price_change_pct).toFixed(1)}%. Waste at ${kpis.waste.waste_rate_pct.toFixed(1)}%.`
+                : "Loading..."}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-start gap-2">
+            {kpis && kpis.capacity.overload_mills > 0 && (
+              <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
+                {kpis.capacity.overload_mills} overloaded
               </span>
-              <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                V2030: {kpis?.vision2030.score}/100
-              </span>
-            </div>
+            )}
+            <span className="rounded-full bg-warning/10 px-2.5 py-1 text-xs font-medium text-warning">
+              SAR {kpis?.risk.avg_wheat_price.toFixed(0)}/ton
+            </span>
+            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+              V2030: {kpis?.vision2030.score}/100
+            </span>
           </div>
         </div>
       </div>
@@ -275,7 +228,7 @@ export default function Executive() {
               </tbody>
             </table>
           ) : (
-            <p className="py-8 text-center text-sm text-muted-foreground">No capacity data available for this period.</p>
+            <p className="py-6 text-center text-sm text-muted-foreground">No capacity data available for this period.</p>
           )}
         </div>
       </ChartContainer>

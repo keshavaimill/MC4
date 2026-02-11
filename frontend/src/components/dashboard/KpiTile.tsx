@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ArrowUp, ArrowDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getKpiFontSize } from "@/lib/utils";
 import { KpiDrilldownModal } from "./KpiDrilldownModal";
 
 interface KpiTileProps {
@@ -21,21 +21,21 @@ export function KpiTile({ label, value, unit, delta, driver, onClick }: KpiTileP
       <button
         onClick={onClick || (() => setDrillOpen(true))}
         className={cn(
-          "flex flex-col items-start gap-1 rounded-lg border border-border bg-card p-5 text-left shadow-sm transition-all hover:shadow-md cursor-pointer"
+          "flex flex-col items-start gap-1 rounded-lg border border-border bg-card p-3 lg:p-4 text-left shadow-sm transition-all hover:shadow-md cursor-pointer w-full min-w-0 overflow-hidden box-border"
         )}
       >
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
-        <div className="flex items-baseline gap-1.5">
-          <span className="font-mono text-3xl font-bold text-foreground">{value}</span>
-          {unit && <span className="text-sm text-muted-foreground">{unit}</span>}
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate w-full">{label}</span>
+        <div className="flex items-baseline gap-1.5 min-w-0 w-full">
+          <span className={cn("font-mono font-bold text-foreground truncate", getKpiFontSize(value))}>{value}</span>
+          {unit && <span className="text-xs lg:text-sm text-muted-foreground flex-shrink-0">{unit}</span>}
         </div>
         {delta !== undefined && (
-          <div className={cn("flex items-center gap-1 text-sm font-medium", isPositive ? "text-success" : "text-destructive")}>
-            {isPositive ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
-            <span>{Math.abs(delta)}%</span>
+          <div className={cn("flex items-center gap-1 text-xs lg:text-sm font-medium whitespace-nowrap", isPositive ? "text-success" : "text-destructive")}>
+            {isPositive ? <ArrowUp className="h-3 w-3 lg:h-3.5 lg:w-3.5 flex-shrink-0" /> : <ArrowDown className="h-3 w-3 lg:h-3.5 lg:w-3.5 flex-shrink-0" />}
+            <span>{Math.abs(delta).toFixed(2)}%</span>
           </div>
         )}
-        {driver && <span className="text-xs italic text-muted-foreground">{driver}</span>}
+        {driver && <span className="text-xs italic text-muted-foreground truncate w-full">{driver}</span>}
       </button>
       <KpiDrilldownModal
         open={drillOpen}

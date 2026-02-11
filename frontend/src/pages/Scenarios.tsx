@@ -34,7 +34,7 @@ interface MillCapRow {
 }
 
 export default function Scenarios() {
-  const { queryParams } = useFilters();
+  const { queryParams, kpiQueryParams } = useFilters();
 
   const [selectedScenario, setSelectedScenario] = useState("ramadan");
   const [baseKpis, setBaseKpis] = useState<ExecutiveKpis | null>(null);
@@ -46,14 +46,17 @@ export default function Scenarios() {
   const loadData = async (scenario: string) => {
     setLoading(true);
     try {
-      const baseParams = { ...queryParams, scenario: "base" };
-      const scenParams = { ...queryParams, scenario };
+      // KPIs use future-only dates; mill capacity data uses full range
+      const baseKpiParams = { ...kpiQueryParams, scenario: "base" };
+      const scenKpiParams = { ...kpiQueryParams, scenario };
+      const baseDataParams = { ...queryParams, scenario: "base" };
+      const scenDataParams = { ...queryParams, scenario };
 
       const [bKpi, sKpi, bMills, sMills] = await Promise.all([
-        fetchExecutiveKpis(baseParams),
-        fetchExecutiveKpis(scenParams),
-        fetchMillCapacity(baseParams),
-        fetchMillCapacity(scenParams),
+        fetchExecutiveKpis(baseKpiParams),        // KPIs use future-only dates
+        fetchExecutiveKpis(scenKpiParams),         // KPIs use future-only dates
+        fetchMillCapacity(baseDataParams),         // Data uses full range
+        fetchMillCapacity(scenDataParams),         // Data uses full range
       ]);
 
       setBaseKpis(bKpi);
@@ -69,7 +72,7 @@ export default function Scenarios() {
 
   useEffect(() => {
     loadData(selectedScenario);
-  }, [queryParams.from_date, queryParams.to_date, queryParams.horizon, selectedScenario]);
+  }, [queryParams.from_date, queryParams.to_date, queryParams.horizon, kpiQueryParams.from_date, kpiQueryParams.to_date, selectedScenario]);
 
   const scenarioName = scenarioLabels[selectedScenario] || selectedScenario;
 
@@ -243,17 +246,43 @@ export default function Scenarios() {
         {/* Capacity Impact Chart */}
         <ChartContainer title="Capacity Impact" subtitle="Overload hours by mill">
           {millOverloadChart.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={millOverloadChart} barCategoryGap="25%">
+            <div className="w-full" style={{ height: '300px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart 
+                  data={millOverloadChart} 
+                  barCategoryGap="25%"
+                  margin={{ top: 10, right: 20, bottom: 60, left: 50 }}
+                >
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="mill" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} label={{ value: "Overload (hrs)", angle: -90, position: "insideLeft", fontSize: 11 }} />
-                <Tooltip />
-                <Legend />
+                <YAxis 
+                  tick={{ fontSize: 12 }} 
+                  label={{ 
+                    value: "Overload (hrs)", 
+                    angle: -90, 
+                    position: "left", 
+                    style: { textAnchor: 'middle' },
+                    fontSize: 11 
+                  }} 
+                />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px'
+                  }}
+                />
+                <Legend 
+                  wrapperStyle={{ paddingTop: '10px' }}
+                  iconSize={10}
+                  iconType="rect"
+                  formatter={(value) => <span style={{ fontSize: '11px' }}>{value}</span>}
+                />
                 <Bar dataKey="base" name="Base" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="scenario" name={scenarioName} fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
               </BarChart>
-            </ResponsiveContainer>
+              </ResponsiveContainer>
+            </div>
           ) : (
             <p className="py-8 text-center text-sm text-muted-foreground">No mill data available.</p>
           )}

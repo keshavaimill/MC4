@@ -7,7 +7,7 @@ import { NavLink } from "@/components/NavLink";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
-  useSidebar,
+  SidebarRail, useSidebar,
 } from "@/components/ui/sidebar";
 
 const navGroups = [
@@ -21,7 +21,7 @@ const navGroups = [
     label: "Core Planning",
     items: [
       { title: "Demand & Forecast", url: "/demand", icon: TrendingUp },
-      { title: "Recipe Planning", url: "/planning", icon: ChefHat, star: true },
+      { title: "Production Planning", url: "/planning", icon: ChefHat, star: true },
       { title: "Mill Capacity", url: "/operations", icon: Factory, star: true },
     ],
   },
@@ -88,6 +88,7 @@ export function AppSidebar() {
           </SidebarGroup>
         ))}
       </SidebarContent>
+      <SidebarRail />
     </Sidebar>
   );
 }

@@ -5,7 +5,8 @@ import { ChartContainer } from "@/components/dashboard/ChartContainer";
 import { useFilters } from "@/context/FilterContext";
 import { fetchAlerts } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, Info, XCircle, ArrowRight, Loader2 } from "lucide-react";
+import { AlertTriangle, Info, XCircle, ArrowRight } from "lucide-react";
+import { PageLoader } from "@/components/PageLoader";
 
 interface Alert {
   type: string;
@@ -74,22 +75,19 @@ export default function Alerts() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex h-64 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-3 text-sm text-muted-foreground">Loading alerts...</span>
-        </div>
+        <PageLoader message="Loading alerts…" />
       </DashboardLayout>
     );
   }
 
   return (
     <DashboardLayout>
-      <div className="mb-6">
+      <div className="mb-4">
         <h1 className="text-2xl font-bold text-foreground">Alerts & Decisions</h1>
         <p className="text-sm text-muted-foreground">Priority alerts from capacity analysis</p>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
         {alertKpis.map((kpi) => (
           <KpiTile key={kpi.label} {...kpi} />
         ))}
@@ -103,7 +101,7 @@ export default function Alerts() {
         </div>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-4">
             {alerts.map((alert, i) => (
               <div
                 key={i}

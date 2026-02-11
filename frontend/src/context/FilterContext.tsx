@@ -1,6 +1,8 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useMemo } from "react";
+import { format, subMonths, addMonths, startOfMonth, endOfMonth } from "date-fns";
 
 export type Horizon = "week" | "month" | "year";
+export type PeriodFilter = "7days" | "30days" | "quarter" | "year";
 export type Scenario =
   | "base"
   | "ramadan"
@@ -11,40 +13,116 @@ export type Scenario =
   | "winter";
 
 interface FilterContextValue {
+  periodFilter: PeriodFilter;
+  setPeriodFilter: (p: PeriodFilter) => void;
   horizon: Horizon;
   setHorizon: (h: Horizon) => void;
   scenario: Scenario;
   setScenario: (s: Scenario) => void;
-  fromDate: string; // ISO date string (YYYY-MM-DD)
-  toDate: string;
-  setFromDate: (d: string) => void;
-  setToDate: (d: string) => void;
-  /** Convenience: query string params for API calls */
+  fromDate: string; // ISO date string (YYYY-MM-DD) - computed from periodFilter (full range: historical + future)
+  toDate: string; // ISO date string (YYYY-MM-DD) - computed from periodFilter (full range: historical + future)
+  selectedMills: string[]; // Array of mill IDs
+  setSelectedMills: (mills: string[]) => void;
+  /** Convenience: full-range query params for trend charts and data tables (historical + future) */
   queryParams: Record<string, string>;
+  /** KPI-only query params: future-only date range for KPI tiles */
+  kpiQueryParams: Record<string, string>;
 }
 
 const FilterContext = createContext<FilterContextValue | undefined>(undefined);
 
+// Historical data ends at 2026-02-10
+const HISTORICAL_END_DATE = new Date("2026-02-10");
+
+/**
+ * Full date range for trend charts and data tables (historical + future).
+ * Shows past + future data around the HISTORICAL_END_DATE boundary.
+ */
+function calculateDateRange(period: PeriodFilter): { fromDate: string; toDate: string } {
+  let fromDate: Date;
+  let toDate: Date;
+  
+  switch (period) {
+    case "7days":
+      // Last 7 days + Next 7 days from 2026-02-10
+      fromDate = new Date(HISTORICAL_END_DATE);
+      fromDate.setDate(fromDate.getDate() - 6); // Last 7 days including end date
+      toDate = new Date(HISTORICAL_END_DATE);
+      toDate.setDate(toDate.getDate() + 7); // Next 7 days
+      break;
+    case "30days":
+      // Last 30 days + Next 30 days from 2026-02-10
+      fromDate = new Date(HISTORICAL_END_DATE);
+      fromDate.setDate(fromDate.getDate() - 29); // Last 30 days including end date
+      toDate = new Date(HISTORICAL_END_DATE);
+      toDate.setDate(toDate.getDate() + 30); // Next 30 days
+      break;
+    case "quarter":
+      // Last 3 months + Next 3 months from February 2026
+      fromDate = startOfMonth(subMonths(HISTORICAL_END_DATE, 2)); // Nov 2025 start
+      toDate = endOfMonth(addMonths(HISTORICAL_END_DATE, 2)); // Apr 2026 end
+      break;
+    case "year":
+      // Last 12 months + Next 12 months from February 2026
+      fromDate = startOfMonth(subMonths(HISTORICAL_END_DATE, 11)); // Feb 2025 start
+      toDate = endOfMonth(addMonths(HISTORICAL_END_DATE, 11)); // Jan 2027 end
+      break;
+  }
+  
+  return {
+    fromDate: format(fromDate, "yyyy-MM-dd"),
+    toDate: format(toDate, "yyyy-MM-dd"),
+  };
+}
+
+/**
+ * Future-only date range for KPI tiles.
+ * KPIs should reflect only the upcoming/future period, not historical data.
+ */
+function calculateKpiDateRange(period: PeriodFilter): { fromDate: string; toDate: string } {
+  // KPI range always starts from the day after historical data ends
+  const kpiStart = new Date(HISTORICAL_END_DATE);
+  kpiStart.setDate(kpiStart.getDate() + 1); // Feb 11, 2026
+  
+  let toDate: Date;
+  
+  switch (period) {
+    case "7days":
+      // Next 7 days from Feb 10, 2026 → Feb 11 to Feb 17
+      toDate = new Date(kpiStart);
+      toDate.setDate(toDate.getDate() + 6);
+      break;
+    case "30days":
+      // Next 30 days from Feb 10, 2026 → Feb 11 to Mar 12
+      toDate = new Date(kpiStart);
+      toDate.setDate(toDate.getDate() + 29);
+      break;
+    case "quarter":
+      // Next 3 months from February 2026 → Feb 2026 to Apr 2026
+      toDate = endOfMonth(addMonths(HISTORICAL_END_DATE, 2)); // Apr 2026 end
+      break;
+    case "year":
+      // Next 12 months from February 2026 → Feb 2026 to Jan 2027
+      toDate = endOfMonth(addMonths(HISTORICAL_END_DATE, 11)); // Jan 2027 end
+      break;
+  }
+  
+  return {
+    fromDate: format(kpiStart, "yyyy-MM-dd"),
+    toDate: format(toDate, "yyyy-MM-dd"),
+  };
+}
+
 export function FilterProvider({ children }: { children: React.ReactNode }) {
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("30days");
   const [horizon, setHorizon] = useState<Horizon>("month");
   const [scenario, setScenario] = useState<Scenario>("base");
-  const [fromDate, setFromDate] = useState("2020-01-01");
-  const [toDate, setToDate] = useState("2020-12-31");
+  const [selectedMills, setSelectedMills] = useState<string[]>(["M1", "M2", "M3"]); // All mills selected by default
 
-  // Load available date range from backend on mount
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/meta/date-range");
-        if (!res.ok) return;
-        const json = await res.json();
-        if (json?.min_date) setFromDate(json.min_date);
-        if (json?.max_date) setToDate(json.max_date);
-      } catch {
-        // backend not reachable — keep defaults
-      }
-    })();
-  }, []);
+  // Calculate full date range for trend charts & data (historical + future)
+  const { fromDate, toDate } = useMemo(() => calculateDateRange(periodFilter), [periodFilter]);
+  // Calculate future-only date range for KPI tiles
+  const { fromDate: kpiFromDate, toDate: kpiToDate } = useMemo(() => calculateKpiDateRange(periodFilter), [periodFilter]);
 
   const queryParams: Record<string, string> = {
     from_date: fromDate,
@@ -52,19 +130,39 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
     horizon,
     scenario,
   };
+  
+  // Only add mill_id if not all mills are selected
+  if (selectedMills.length < 3) {
+    queryParams.mill_id = selectedMills.join(",");
+  }
+
+  // KPI-only params: future-only date range for KPI tile values
+  const kpiQueryParams: Record<string, string> = {
+    from_date: kpiFromDate,
+    to_date: kpiToDate,
+    horizon,
+    scenario,
+  };
+
+  if (selectedMills.length < 3) {
+    kpiQueryParams.mill_id = selectedMills.join(",");
+  }
 
   return (
     <FilterContext.Provider
       value={{
+        periodFilter,
+        setPeriodFilter,
         horizon,
         setHorizon,
         scenario,
         setScenario,
         fromDate,
         toDate,
-        setFromDate,
-        setToDate,
+        selectedMills,
+        setSelectedMills,
         queryParams,
+        kpiQueryParams,
       }}
     >
       {children}

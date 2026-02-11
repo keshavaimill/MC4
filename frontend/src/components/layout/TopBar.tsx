@@ -1,24 +1,14 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Search, Bell, Settings, User, HelpCircle, LogOut, CalendarIcon } from "lucide-react";
+import { Bell, Settings, HelpCircle, LogOut, CalendarIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { useFilters, type Scenario } from "@/context/FilterContext";
+import { useFilters, type Scenario, type PeriodFilter } from "@/context/FilterContext";
 import { useAuth } from "@/context/AuthContext";
-import { format, parseISO } from "date-fns";
 
-interface TopBarProps {
-  onOpenAI?: () => void;
-}
-
-export function TopBar({ onOpenAI }: TopBarProps) {
-  const { fromDate, toDate, setFromDate, setToDate, scenario, setScenario } = useFilters();
+export function TopBar() {
+  const { periodFilter, setPeriodFilter, scenario, setScenario } = useFilters();
   const { logout } = useAuth();
   const navigate = useNavigate();
-
-  const parsedFrom = parseISO(fromDate);
-  const parsedTo = parseISO(toDate);
 
   return (
     <header className="sticky top-0 z-50 border-b-2 border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
@@ -34,41 +24,19 @@ export function TopBar({ onOpenAI }: TopBarProps) {
           <span className="text-2xl font-bold text-foreground">MC4</span>
         </Link>
 
-        {/* Date From Picker */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <button className="flex h-8 items-center gap-2 rounded-md border border-input bg-background px-3 text-xs text-muted-foreground hover:bg-accent">
-              <CalendarIcon className="h-3.5 w-3.5" />
-              <span>From: {format(parsedFrom, "dd MMM yyyy")}</span>
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={parsedFrom}
-              onSelect={(date) => date && setFromDate(format(date, "yyyy-MM-dd"))}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
-
-        {/* Date To Picker */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <button className="flex h-8 items-center gap-2 rounded-md border border-input bg-background px-3 text-xs text-muted-foreground hover:bg-accent">
-              <CalendarIcon className="h-3.5 w-3.5" />
-              <span>To: {format(parsedTo, "dd MMM yyyy")}</span>
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={parsedTo}
-              onSelect={(date) => date && setToDate(format(date, "yyyy-MM-dd"))}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
+        {/* Period Filter */}
+        <Select value={periodFilter} onValueChange={(v) => setPeriodFilter(v as PeriodFilter)}>
+          <SelectTrigger className="h-8 w-40 text-xs">
+            <CalendarIcon className="h-3.5 w-3.5 mr-2" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7days">Next 7 Days</SelectItem>
+            <SelectItem value="30days">Next 30 Days</SelectItem>
+            <SelectItem value="quarter">Next Quarter</SelectItem>
+            <SelectItem value="year">Next Year</SelectItem>
+          </SelectContent>
+        </Select>
 
         {/* Scenario Switcher */}
         <Select value={scenario} onValueChange={(v) => setScenario(v as Scenario)}>
@@ -86,14 +54,7 @@ export function TopBar({ onOpenAI }: TopBarProps) {
           </SelectContent>
         </Select>
 
-        {/* AI Search */}
-        <button
-          onClick={onOpenAI}
-          className="ml-auto flex h-8 w-64 items-center gap-2 rounded-md border border-input bg-background px-3 text-xs text-muted-foreground transition-colors hover:bg-accent"
-        >
-          <Search className="h-3.5 w-3.5" />
-          <span>Ask AI anything...</span>
-        </button>
+        <div className="ml-auto" />
 
         {/* Alerts Badge */}
         <Link to="/alerts" className="relative rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground">
