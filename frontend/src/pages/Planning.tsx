@@ -6,7 +6,8 @@ import { useFilters } from "@/context/FilterContext";
 import { fetchRecipePlanningKpis, fetchRecipeEligibility, fetchRecipePlanning, type RecipePlanningKpis } from "@/lib/api";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
-import { Check, X, AlertTriangle, Loader2, RotateCcw } from "lucide-react";
+import { Check, X, AlertTriangle, RotateCcw, Loader2 } from "lucide-react";
+import { PageLoader } from "@/components/PageLoader";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface EligibilityRow {
@@ -174,10 +175,7 @@ export default function Planning() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex h-64 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-3 text-sm text-muted-foreground">Loading planning data...</span>
-        </div>
+        <PageLoader message="Loading planning data…" />
       </DashboardLayout>
     );
   }
@@ -185,8 +183,8 @@ export default function Planning() {
   return (
     <DashboardLayout>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Production Planning</h1>
-        <p className="text-sm text-muted-foreground">Adjust recipe time allocation and see real-time impact</p>
+        <h1 className="text-3xl font-bold text-gray-900">Production Planning</h1>
+        <p className="text-sm text-gray-600 mt-1">Adjust recipe time allocation and see real-time impact</p>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
@@ -202,23 +200,23 @@ export default function Planning() {
             <table className="w-full text-sm">
               <thead>
                 <tr>
-                  <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground">Flour</th>
+                  <th className="px-2 py-2 text-left text-xs font-bold text-gray-700">Flour</th>
                   {eligibilityMatrix.recipes.map((r) => (
-                    <th key={r} className="px-2 py-2 text-center text-xs font-semibold text-muted-foreground">{r.split(" ")[0]}</th>
+                    <th key={r} className="px-2 py-2 text-center text-xs font-bold text-gray-700">{r.split(" ")[0]}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {eligibilityMatrix.flourTypes.map((ft, i) => (
-                  <tr key={ft} className={i % 2 === 0 ? "bg-card" : "bg-accent/30"}>
-                    <td className="px-2 py-2 text-xs font-medium">{ft}</td>
+                  <tr key={ft} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                    <td className="px-2 py-2 text-xs font-medium text-gray-900">{ft}</td>
                     {eligibilityMatrix.recipes.map((r) => (
                       <td key={r} className="px-2 py-2 text-center">
                         {eligibilityMatrix.matrix[ft]?.[r] ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <button type="button" className="inline-flex items-center justify-center">
-                                <Check className="h-4 w-4 text-success" />
+                                <Check className="h-4 w-4 text-emerald-600" />
                               </button>
                             </TooltipTrigger>
                             <TooltipContent side="top" align="center">
@@ -227,7 +225,7 @@ export default function Planning() {
                           </Tooltip>
                         ) : (
                           <span className="inline-flex items-center justify-center">
-                            <X className="h-4 w-4 text-muted-foreground/40" />
+                            <X className="h-4 w-4 text-gray-300" />
                           </span>
                         )}
                       </td>
@@ -253,9 +251,9 @@ export default function Planning() {
               const hasChanged = Math.abs(hrs - base) > sliderStep;
 
               return (
-                <div key={id} className="rounded-lg border border-border/50 bg-accent/20 px-4 py-3">
+                <div key={id} className="rounded-lg border-2 border-gray-200 bg-gray-50 px-4 py-3">
                   <div className="mb-1 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-foreground">{info?.name || id}</span>
+                    <span className="text-sm font-semibold text-gray-900">{info?.name || id}</span>
                     <div className="flex items-center gap-2">
                       {hasChanged && (
                         <span className={cn(
@@ -275,7 +273,7 @@ export default function Planning() {
                         <button
                           type="button"
                           onClick={() => setAllocations((prev) => ({ ...prev, [id]: base }))}
-                          className="ml-1 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                          className="ml-1 rounded p-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-900 transition-colors"
                           title="Reset to baseline"
                         >
                           <RotateCcw className="h-3.5 w-3.5" />
@@ -283,7 +281,7 @@ export default function Planning() {
                       )}
                     </div>
                   </div>
-                  <div className="mb-1 text-[10px] text-muted-foreground">
+                  <div className="mb-1 text-[10px] text-gray-600">
                     Baseline: {Math.round(base).toLocaleString()} hrs
                     {info?.costPerHour ? ` · Cost: SAR ${(info.costPerHour / 1000).toFixed(1)}k/hr` : ""}
                     {info?.wastePct ? ` · Waste: ${info.wastePct.toFixed(1)}%` : ""}
@@ -295,12 +293,12 @@ export default function Planning() {
                     max={sliderMax}
                     step={sliderStep}
                     className={cn(
-                      "[&_[role=slider]]:border-primary [&_[role=slider]]:bg-card [&_[role=slider]]:shadow-md [&_[role=slider]]:h-5 [&_[role=slider]]:w-5",
-                      "[&_.relative]:bg-secondary [&_[data-orientation=horizontal]>.absolute]:bg-primary",
+                      "[&_[role=slider]]:border-primary [&_[role=slider]]:bg-white [&_[role=slider]]:shadow-md [&_[role=slider]]:h-5 [&_[role=slider]]:w-5",
+                      "[&_.relative]:bg-muted [&_[data-orientation=horizontal]>.absolute]:bg-primary",
                       hasChanged && "[&_[data-orientation=horizontal]>.absolute]:bg-amber-500"
                     )}
                   />
-                  <div className="mt-1 flex justify-between text-[9px] text-muted-foreground/60">
+                  <div className="mt-1 flex justify-between text-[9px] text-gray-500">
                     <span>{sliderMin.toLocaleString()}</span>
                     <span>{sliderMax.toLocaleString()}</span>
                   </div>
@@ -317,7 +315,7 @@ export default function Planning() {
                   }
                   setAllocations(reset);
                 }}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-200 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 Reset all to baseline
@@ -328,9 +326,9 @@ export default function Planning() {
 
         {/* Impact Panel */}
         <div className="sticky top-20 space-y-3 self-start">
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <div className="rounded-xl border-2 border-gray-200 bg-white p-5 shadow-lg">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-foreground">Live Impact</h3>
+              <h3 className="text-sm font-bold text-gray-900">Live Impact</h3>
               {isCalculating && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
             </div>
             <div className="space-y-4">
@@ -348,16 +346,16 @@ export default function Planning() {
 
 function ImpactMetric({ label, value, status }: { label: string; value: string; status: "ok" | "warning" | "danger" }) {
   return (
-    <div className="flex items-center justify-between rounded-lg bg-accent/40 px-3 py-2.5">
+    <div className="flex items-center justify-between rounded-lg bg-gray-100 px-3 py-2.5">
       <div className="flex items-center gap-2">
-        {status === "danger" && <AlertTriangle className="h-3.5 w-3.5 text-destructive" />}
-        {status === "warning" && <AlertTriangle className="h-3.5 w-3.5 text-warning" />}
-        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        {status === "danger" && <AlertTriangle className="h-3.5 w-3.5 text-red-600" />}
+        {status === "warning" && <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />}
+        <span className="text-xs font-medium text-gray-700">{label}</span>
       </div>
       <span
         className={cn(
           "font-mono text-sm font-bold",
-          status === "danger" ? "text-destructive" : status === "warning" ? "text-warning" : "text-success"
+          status === "danger" ? "text-red-600" : status === "warning" ? "text-amber-600" : "text-emerald-600"
         )}
       >
         {value}

@@ -48,11 +48,11 @@ export function AppSidebar() {
   const location = useLocation();
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarContent className="pt-2">
+    <Sidebar collapsible="icon" className="border-r-2 border-gray-200">
+      <SidebarContent className="pt-4 bg-gradient-to-b from-gray-50 to-white">
         {navGroups.map((group) => (
           <SidebarGroup key={group.label}>
-            <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
+            <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-gray-500 font-bold px-3">
               {group.label}
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -68,8 +68,8 @@ export function AppSidebar() {
                       >
                         <NavLink
                           to={item.url}
-                          className="gap-3"
-                          activeClassName="bg-primary/10 text-primary font-semibold"
+                          className="gap-3 rounded-lg transition-all hover:bg-accent"
+                          activeClassName="bg-accent text-primary font-semibold shadow-sm border-l-4 border-primary"
                         >
                           <item.icon className="h-4 w-4 shrink-0" />
                           <span className="flex items-center gap-1.5">

@@ -5,7 +5,7 @@ import { ChartContainer } from "@/components/dashboard/ChartContainer";
 import { useFilters } from "@/context/FilterContext";
 import { fetchRawMaterialsKpis, fetchRawMaterial, type RawMaterialsKpis } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import { PageLoader } from "@/components/PageLoader";
 import WheatOriginMap from "@/components/WheatOriginMap";
 
 interface RawMaterialRow {
@@ -32,10 +32,10 @@ const COUNTRY_COORDS: Record<string, { lat: number; lng: number }> = {
 function LevelBadge({ level }: { level: string }) {
   const styles =
     level === "High"
-      ? "bg-destructive/10 text-destructive"
+      ? "bg-red-100 text-red-700"
       : level === "Medium"
-        ? "bg-warning/10 text-warning"
-        : "bg-success/10 text-success";
+        ? "bg-amber-100 text-amber-700"
+        : "bg-emerald-100 text-emerald-700";
   return <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", styles)}>{level}</span>;
 }
 
@@ -129,10 +129,7 @@ export default function Materials() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex h-64 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-3 text-sm text-muted-foreground">Loading materials data...</span>
-        </div>
+        <PageLoader message="Loading materials data…" />
       </DashboardLayout>
     );
   }
@@ -140,8 +137,8 @@ export default function Materials() {
   return (
     <DashboardLayout>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Raw Materials & Wheat Origins</h1>
-        <p className="text-sm text-muted-foreground">Global wheat sourcing and price analysis</p>
+        <h1 className="text-3xl font-bold text-gray-900">Raw Materials & Wheat Origins</h1>
+        <p className="text-sm text-gray-600 mt-1">Global wheat sourcing and price analysis</p>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
@@ -165,9 +162,9 @@ export default function Materials() {
         <ChartContainer title="Wheat by Country" subtitle="Average price and availability">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-secondary">
+              <tr className="bg-gray-100">
                 {["Country", "Avg Price (SAR/ton)", "Total Availability (tons)", "Cost Level"].map((h) => (
-                  <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold uppercase text-muted-foreground">{h}</th>
+                  <th key={h} className="px-3 py-2.5 text-left text-xs font-bold uppercase text-gray-700">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -178,10 +175,10 @@ export default function Materials() {
                   const level =
                     row.avgCost > avgCostAll * 1.1 ? "High" : row.avgCost > avgCostAll * 0.95 ? "Medium" : "Low";
                   return (
-                    <tr key={row.country} className={cn("border-t border-border", i % 2 === 0 ? "bg-card" : "bg-accent/20")}>
-                      <td className="px-3 py-2.5 text-xs font-medium">{row.country}</td>
-                      <td className="px-3 py-2.5 font-mono text-xs">{row.avgCost.toFixed(0)}</td>
-                      <td className="px-3 py-2.5 font-mono text-xs">{row.volume.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                    <tr key={row.country} className={cn("border-t border-gray-200", i % 2 === 0 ? "bg-white" : "bg-gray-50")}>
+                      <td className="px-3 py-2.5 text-xs font-medium text-gray-900">{row.country}</td>
+                      <td className="px-3 py-2.5 font-mono text-xs text-gray-800">{row.avgCost.toFixed(0)}</td>
+                      <td className="px-3 py-2.5 font-mono text-xs text-gray-800">{row.volume.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                       <td className="px-3 py-2.5">
                         <LevelBadge level={level} />
                       </td>
@@ -190,7 +187,7 @@ export default function Materials() {
                 })}
               {byCountry.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-3 py-8 text-center text-xs text-muted-foreground">No raw material data available.</td>
+                  <td colSpan={4} className="px-3 py-8 text-center text-xs text-gray-500">No raw material data available.</td>
                 </tr>
               )}
             </tbody>

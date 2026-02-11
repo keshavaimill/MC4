@@ -3,87 +3,78 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 30, 30, 30;
-  --background-start-rgb: 250, 248, 246;
-  --background-end-rgb: 255, 255, 255;
-  --mc4-brown: 93, 64, 55;
-  --mc4-orange: 255, 140, 66;  /* Bright matte orange #FF8C42 */
-  
-  /* Shadcn/ui color variables for charts and UI components */
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
+  /* MC4 original logo colours – from WHEAT_GRAIN.svg (#ebc78c) and brand brown (#5d4037) */
+  --logo-gold: 36 68% 74%;       /* #ebc78c – wheat/gold from logo */
+  --logo-brown: 12 26% 29%;     /* #5d4037 – dark brown from logo family */
+  --logo-cream: 40 45% 96%;      /* soft cream tint to match logo */
+  --foreground-rgb: 93, 64, 55;
+  --background-start-rgb: 253, 251, 247;
+  --background-end-rgb: 255, 252, 245;
+
+  /* Shadcn/ui – driven by logo palette */
+  --background: 40 33% 98%;
+  --foreground: 12 26% 29%;
   --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
+  --card-foreground: 12 26% 29%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
-  --primary: 24 95% 53%; /* MC4 orange #FF8C42 */
+  --popover-foreground: 12 26% 29%;
+  --primary: 36 68% 52%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
+  --secondary: 36 40% 94%;
+  --secondary-foreground: 12 26% 29%;
+  --muted: 36 25% 94%;
+  --muted-foreground: 12 18% 42%;
+  --accent: 36 68% 92%;
+  --accent-foreground: 12 26% 29%;
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 0 0% 98%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 24 95% 53%;
-  --success: 142 76% 36%; /* Green for success */
+  --border: 36 25% 88%;
+  --input: 36 25% 88%;
+  --ring: 36 68% 52%;
+  --success: 142 76% 36%;
   --success-foreground: 0 0% 100%;
-  --warning: 38 92% 50%; /* Amber/orange for warnings */
+  --warning: 38 92% 50%;
   --warning-foreground: 0 0% 100%;
-  --rust: 15 50% 35%;
-  --beige: 30 20% 85%;
-  --cream: 40 30% 95%;
+  --rust: 12 26% 29%;
+  --beige: 36 30% 88%;
+  --cream: 40 45% 96%;
   --sage: 120 15% 65%;
-  --amber: 38 92% 50%;
-  --charcoal: 0 0% 20%;
+  --amber: 36 68% 74%;
+  --charcoal: 12 26% 29%;
+
+  /* Sidebar – logo palette */
+  --sidebar-background: 40 33% 98%;
+  --sidebar-foreground: 12 26% 29%;
+  --sidebar-primary: 36 68% 52%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 36 68% 92%;
+  --sidebar-accent-foreground: 12 26% 29%;
+  --sidebar-border: 36 25% 88%;
+  --sidebar-ring: 36 68% 52%;
+
+  /* Design tokens using logo colours */
+  --radius: 0.85rem;
+  --gradient-orange: linear-gradient(135deg, hsl(var(--logo-gold)) 0%, hsl(36 68% 58%) 100%);
+  --gradient-hero: radial-gradient(circle at top, hsl(0 0% 100%) 0%, hsl(40 45% 98%) 50%, hsl(36 40% 95%) 100%);
+  --shadow-card: 0 10px 30px hsl(var(--logo-brown) / 0.08);
+  --shadow-elevated: 0 20px 60px hsl(var(--logo-brown) / 0.12);
+  --shadow-hover: 0 25px 80px hsl(var(--logo-brown) / 0.14);
+  --shadow-glow: 0 15px 40px hsl(var(--logo-gold) / 0.25);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 250, 248, 246;
-    --background-start-rgb: 30, 30, 30;
-    --background-end-rgb: 40, 40, 40;
-    
-    /* Dark mode color overrides */
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 24 95% 53%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 24 95% 53%;
-    --success: 142 76% 36%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-  }
+/* Light theme only – dark mode disabled for consistent MC4 branding */
+html {
+  color-scheme: light;
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background: var(--gradient-hero);
+  background-attachment: fixed;
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+  font-family: 'Inter', 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
     'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -91,6 +82,93 @@ body {
   overflow-x: hidden;
   width: 100%;
   max-width: 100vw;
+}
+
+/* Arabian Mills–inspired utility classes */
+@layer utilities {
+  .section-shell {
+    border-radius: 1rem;
+  }
+  @media (min-width: 640px) {
+    .section-shell {
+      border-radius: 1.25rem;
+    }
+  }
+  @media (min-width: 1024px) {
+    .section-shell {
+      border-radius: 1.5rem;
+    }
+  }
+  .section-shell {
+    border-width: 1px;
+    border-color: hsl(var(--border) / 0.7);
+    background-color: hsl(var(--card) / 0.95);
+    box-shadow: var(--shadow-card);
+    backdrop-filter: blur(24px);
+    transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateZ(0);
+  }
+  .section-shell:hover {
+    transform: translateY(-2px) translateZ(0);
+    box-shadow: var(--shadow-elevated);
+  }
+  .hover-lift {
+    transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateZ(0);
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px) translateZ(0);
+    box-shadow: var(--shadow-hover);
+  }
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    border-width: 1px;
+    border-color: hsl(var(--border) / 0.7);
+    background-color: hsl(0 0% 100% / 0.8);
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateZ(0);
+  }
+  .pill:hover {
+    transform: scale(1.02) translateZ(0);
+  }
+  .surface-muted {
+    border-radius: 1rem;
+    border-width: 1px;
+    border-color: hsl(var(--border) / 0.7);
+    background-color: hsl(0 0% 100% / 0.8);
+    transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateZ(0);
+  }
+  .surface-muted:hover {
+    transform: translateY(-1px) translateZ(0);
+    box-shadow: var(--shadow-card);
+  }
+  @media (max-width: 640px) {
+    .section-shell:hover,
+    .hover-lift:hover {
+      transform: translateZ(0);
+    }
+  }
 }
 
 html {
@@ -155,12 +233,12 @@ table {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #8d6e63;
+  background: hsl(var(--logo-brown) / 0.7);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #5d4037;
+  background: hsl(var(--logo-brown));
 }
 
 /* Ensure Recharts containers are visible */
@@ -220,12 +298,12 @@ table {
 }
 
 .recharts-cartesian-axis-tick-value {
-  fill: #5d4037 !important;
+  fill: hsl(var(--logo-brown)) !important;
   opacity: 1 !important;
 }
 
 .recharts-legend-item-text {
-  color: #5d4037 !important;
+  color: hsl(var(--logo-brown)) !important;
   opacity: 1 !important;
 }
 
@@ -275,7 +353,7 @@ svg.recharts-surface {
 
 .react-datepicker {
   font-family: inherit;
-  border: 1px solid #8d6e63;
+  border: 1px solid hsl(var(--border));
   border-radius: 8px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   background-color: #fff !important;
@@ -292,14 +370,14 @@ svg.recharts-surface {
 }
 
 .react-datepicker__current-month {
-  color: #5d4037;
+  color: hsl(var(--logo-brown));
   font-weight: 600;
   font-size: 0.875rem;
   padding-bottom: 0.5rem;
 }
 
 .react-datepicker__day-name {
-  color: #8d6e63;
+  color: hsl(var(--logo-brown) / 0.8);
   font-weight: 600;
   font-size: 0.75rem;
   width: 2rem;
@@ -308,7 +386,7 @@ svg.recharts-surface {
 }
 
 .react-datepicker__day {
-  color: #5d4037;
+  color: hsl(var(--logo-brown));
   width: 2rem;
   line-height: 2rem;
   margin: 0.166rem;
@@ -317,14 +395,14 @@ svg.recharts-surface {
 }
 
 .react-datepicker__day:hover {
-  background-color: #fff5e6;
+  background-color: hsl(var(--accent));
   border-radius: 4px;
 }
 
 .react-datepicker__day--selected,
 .react-datepicker__day--in-selecting-range,
 .react-datepicker__day--in-range {
-  background-color: #FF8C42 !important;
+  background-color: hsl(var(--primary)) !important;
   color: white;
   font-weight: 600;
   border-radius: 4px;
@@ -333,12 +411,12 @@ svg.recharts-surface {
 .react-datepicker__day--selected:hover,
 .react-datepicker__day--in-selecting-range:hover,
 .react-datepicker__day--in-range:hover {
-  background-color: #FF9500 !important;
+  background-color: hsl(36 68% 45%) !important;
 }
 
 .react-datepicker__day--keyboard-selected {
-  background-color: #fff5e6;
-  color: #5d4037;
+  background-color: hsl(var(--accent));
+  color: hsl(var(--logo-brown));
 }
 
 .react-datepicker__day--disabled {
@@ -355,12 +433,12 @@ svg.recharts-surface {
 }
 
 .react-datepicker__navigation-icon::before {
-  border-color: #8d6e63;
+  border-color: hsl(var(--logo-brown) / 0.8);
   border-width: 2px 2px 0 0;
 }
 
 .react-datepicker__navigation:hover *::before {
-  border-color: #FF8C42;
+  border-color: hsl(var(--primary));
 }
 
 .react-datepicker__triangle {
@@ -368,7 +446,7 @@ svg.recharts-surface {
 }
 
 .react-datepicker__triangle::before {
-  border-bottom-color: #8d6e63 !important;
+  border-bottom-color: hsl(var(--border)) !important;
 }
 
 /* Ensure calendar popup is visible */

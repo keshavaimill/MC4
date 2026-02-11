@@ -5,7 +5,8 @@ import { ChartContainer } from "@/components/dashboard/ChartContainer";
 import { useFilters } from "@/context/FilterContext";
 import { fetchMillOperationsKpis, fetchMillSchedule, fetchMillCapacity, type MillOperationsKpis } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Check, AlertTriangle, X, Loader2 } from "lucide-react";
+import { Check, AlertTriangle, X } from "lucide-react";
+import { PageLoader } from "@/components/PageLoader";
 import { useToast } from "@/components/ui/use-toast";
 
 interface ScheduleRow {
@@ -206,10 +207,7 @@ export default function Operations() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex h-64 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-3 text-sm text-muted-foreground">Loading operations data...</span>
-        </div>
+        <PageLoader message="Loading operations data…" />
       </DashboardLayout>
     );
   }
@@ -217,8 +215,8 @@ export default function Operations() {
   return (
     <DashboardLayout>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Mill Runtime & Sequencing</h1>
-        <p className="text-sm text-muted-foreground">Gantt timeline and capacity ledger across all mills</p>
+        <h1 className="text-3xl font-bold text-gray-900">Mill Runtime & Sequencing</h1>
+        <p className="text-sm text-gray-600 mt-1">Gantt timeline and capacity ledger across all mills</p>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
@@ -259,11 +257,11 @@ export default function Operations() {
                       return (
                         <div
                           key={i}
-                          className="text-center border-l border-border/40"
+                          className="text-center border-l border-gray-300"
                           style={{ width: `${100 / total}%` }}
                         >
                           {i % step === 0 ? (
-                            <span className="text-[10px] font-medium text-muted-foreground leading-tight">
+                            <span className="text-[10px] font-medium text-gray-600 leading-tight">
                               {dl.label}
                             </span>
                           ) : null}
@@ -280,7 +278,7 @@ export default function Operations() {
                       <div key={millId} className="flex items-center group">
                         {/* Mill name */}
                         <div
-                          className="flex-shrink-0 pr-3 text-sm font-semibold text-foreground truncate"
+                          className="flex-shrink-0 pr-3 text-sm font-semibold text-gray-900 truncate"
                           style={{ width: 140 }}
                           title={mill}
                         >
@@ -289,14 +287,14 @@ export default function Operations() {
 
                         {/* Timeline bar */}
                         <div
-                          className="relative flex-1 border-b border-border/30 group-hover:bg-accent/20 transition-colors"
+                          className="relative flex-1 border-b border-gray-200 group-hover:bg-gray-50 transition-colors"
                           style={{ height: 44 }}
                         >
                           {/* Vertical gridlines */}
                           {dateLabels.map((_, gi) => (
                             <div
                               key={gi}
-                              className="absolute top-0 bottom-0 border-l border-border/20"
+                              className="absolute top-0 bottom-0 border-l border-gray-200"
                               style={{ left: `${(gi / total) * 100}%` }}
                             />
                           ))}
@@ -334,8 +332,8 @@ export default function Operations() {
               </div>
 
               {/* Recipe legend */}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2 border-t border-border/40">
-                <span className="text-xs font-medium text-muted-foreground mr-1">Recipes:</span>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2 border-t border-gray-200">
+                <span className="text-xs font-medium text-gray-600 mr-1">Recipes:</span>
                 {uniqueRecipes.map((recipe) => {
                   const color = getRecipeColor(recipe);
                   return (
@@ -359,7 +357,7 @@ export default function Operations() {
                           style={{ backgroundColor: color }}
                         />
                       </div>
-                      <span className="text-xs text-muted-foreground">{recipe}</span>
+                      <span className="text-xs text-gray-700">{recipe}</span>
                     </div>
                   );
                 })}
@@ -367,7 +365,7 @@ export default function Operations() {
             </div>
           );
         })() : (
-          <p className="py-8 text-center text-sm text-muted-foreground">No schedule data available.</p>
+          <p className="py-8 text-center text-sm text-gray-600">No schedule data available.</p>
         )}
       </ChartContainer>
 
@@ -379,29 +377,29 @@ export default function Operations() {
         {ledger.length > 0 ? (
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-secondary">
+              <tr className="bg-gray-100">
                 {["Mill", "Period", "Available Hours", "Planned Hours", "Variance", "Status"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase text-muted-foreground">{h}</th>
+                  <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase text-gray-700">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {ledger.map((row, i) => (
-                <tr key={`${row.mill}-${row.period}`} className={cn("border-t border-border", i % 2 === 0 ? "bg-card" : "bg-accent/20")}>
-                  <td className="px-4 py-3 font-semibold">{row.mill}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{row.period || "N/A"}</td>
-                  <td className="px-4 py-3 font-mono">{row.available}</td>
-                  <td className="px-4 py-3 font-mono">{row.planned}</td>
-                  <td className="px-4 py-3 font-mono">{row.variance}</td>
+                <tr key={`${row.mill}-${row.period}`} className={cn("border-t border-gray-200", i % 2 === 0 ? "bg-white" : "bg-gray-50")}>
+                  <td className="px-4 py-3 font-semibold text-gray-900">{row.mill}</td>
+                  <td className="px-4 py-3 text-gray-600">{row.period || "N/A"}</td>
+                  <td className="px-4 py-3 font-mono text-gray-900">{row.available}</td>
+                  <td className="px-4 py-3 font-mono text-gray-900">{row.planned}</td>
+                  <td className="px-4 py-3 font-mono text-gray-900">{row.variance}</td>
                   <td className="px-4 py-3">
                     <button
                       type="button"
-                      className="inline-flex items-center justify-center rounded-md p-1 hover:bg-accent/60"
+                      className="inline-flex items-center justify-center rounded-md p-1 hover:bg-gray-200"
                       onClick={() => handleLedgerClick(row.mill, row.status)}
                     >
-                      {row.status === "ok" && <Check className="h-4 w-4 text-success" />}
-                      {row.status === "warning" && <AlertTriangle className="h-4 w-4 text-warning" />}
-                      {row.status === "danger" && <X className="h-4 w-4 text-destructive" />}
+                      {row.status === "ok" && <Check className="h-4 w-4 text-emerald-600" />}
+                      {row.status === "warning" && <AlertTriangle className="h-4 w-4 text-amber-600" />}
+                      {row.status === "danger" && <X className="h-4 w-4 text-red-600" />}
                     </button>
                   </td>
                 </tr>
@@ -409,7 +407,7 @@ export default function Operations() {
             </tbody>
           </table>
         ) : (
-          <p className="py-8 text-center text-sm text-muted-foreground">No capacity data available.</p>
+          <p className="py-8 text-center text-sm text-gray-600">No capacity data available.</p>
         )}
       </ChartContainer>
     </DashboardLayout>

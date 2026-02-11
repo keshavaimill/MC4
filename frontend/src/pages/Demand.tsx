@@ -6,7 +6,8 @@ import { useFilters } from "@/context/FilterContext";
 import { fetchDemandRecipeKpis, fetchSkuForecast, fetchRecipePlanning, type DemandRecipeKpis } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { Search, Loader2 } from "lucide-react";
+import { Search } from "lucide-react";
+import { PageLoader } from "@/components/PageLoader";
 import { useToast } from "@/components/ui/use-toast";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -163,10 +164,7 @@ export default function Demand() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex h-64 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-3 text-sm text-muted-foreground">Loading demand data...</span>
-        </div>
+        <PageLoader message="Loading demand data…" />
       </DashboardLayout>
     );
   }
@@ -174,7 +172,8 @@ export default function Demand() {
   return (
     <DashboardLayout>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Demand Forecasting</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Demand Forecasting</h1>
+        <p className="text-sm text-gray-600 mt-1">SKU forecasts, bulk flour, and recipe demand</p>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
@@ -186,31 +185,31 @@ export default function Demand() {
       {/* SKU Table - Full Width */}
       <ChartContainer title="SKU Forecast Table" subtitle="Forecast by SKU from backend" className="mb-6">
           <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search SKU..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+            <Input placeholder="Search SKU..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 border-2 border-gray-200 bg-white" />
           </div>
-          <div className="max-h-[400px] overflow-auto rounded-lg border border-border">
+          <div className="max-h-[400px] overflow-auto rounded-lg border-2 border-gray-200">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-secondary">
+              <thead className="sticky top-0 bg-gray-100">
                 <tr>
                   {["SKU ID", "SKU Name", "Flour Type", "Period", "Forecast (tons)"].map((h) => (
-                    <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold uppercase text-muted-foreground">{h}</th>
+                    <th key={h} className="px-3 py-2.5 text-left text-xs font-bold uppercase text-gray-700">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.slice(0, 50).map((sku, i) => (
-                  <tr key={`${sku.sku_id}-${sku.period}`} className={cn("border-t border-border transition-colors hover:bg-primary/5", i % 2 === 0 ? "bg-card" : "bg-accent/30")}>
-                    <td className="px-3 py-2 font-mono text-xs font-medium">{sku.sku_id}</td>
-                    <td className="px-3 py-2 text-xs">{sku.sku_name}</td>
-                    <td className="px-3 py-2 text-xs">{sku.flour_type}</td>
-                    <td className="px-3 py-2 text-xs">{sku.period}</td>
-                    <td className="px-3 py-2 font-mono text-xs font-semibold">{sku.forecast_tons?.toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
+                  <tr key={`${sku.sku_id}-${sku.period}`} className={cn("border-t border-gray-200 transition-colors hover:bg-accent/50", i % 2 === 0 ? "bg-white" : "bg-gray-50")}>
+                    <td className="px-3 py-2 font-mono text-xs font-medium text-gray-900">{sku.sku_id}</td>
+                    <td className="px-3 py-2 text-xs text-gray-800">{sku.sku_name}</td>
+                    <td className="px-3 py-2 text-xs text-gray-700">{sku.flour_type}</td>
+                    <td className="px-3 py-2 text-xs text-gray-700">{sku.period}</td>
+                    <td className="px-3 py-2 font-mono text-xs font-semibold text-gray-900">{sku.forecast_tons?.toLocaleString(undefined, { maximumFractionDigits: 1 })}</td>
                   </tr>
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-3 py-8 text-center text-xs text-muted-foreground">No SKU data found.</td>
+                    <td colSpan={5} className="px-3 py-8 text-center text-xs text-gray-500">No SKU data found.</td>
                   </tr>
                 )}
               </tbody>
@@ -231,17 +230,17 @@ export default function Demand() {
                 }}
                 className="flex w-full items-center gap-4 text-left"
               >
-                <div className="w-28 text-right text-xs font-medium text-muted-foreground">{stage.stage}</div>
-                <div className="relative flex-1 h-9 overflow-hidden rounded-md bg-muted">
+                <div className="w-28 text-right text-xs font-medium text-gray-600">{stage.stage}</div>
+                <div className="relative flex-1 h-9 overflow-hidden rounded-md bg-gray-200">
                   <div
-                    className="absolute inset-y-0 left-0 rounded-md bg-primary/80 transition-all"
+                    className="absolute inset-y-0 left-0 rounded-md bg-primary transition-all"
                     style={{ width: `${Math.min(100, stage.conversionPct)}%` }}
                   />
                   <div className="relative z-10 flex h-full items-center justify-between px-3">
-                    <span className="font-mono text-xs font-bold text-primary-foreground">
+                    <span className="font-mono text-xs font-bold text-white">
                       {stage.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </span>
-                    <span className="font-mono text-xs font-semibold text-primary-foreground">{stage.conversionPct}%</span>
+                    <span className="font-mono text-xs font-semibold text-white">{stage.conversionPct}%</span>
                   </div>
                 </div>
               </button>
@@ -257,23 +256,23 @@ export default function Demand() {
                   data={chartData} 
                   margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis 
                     dataKey="period" 
-                    tick={{ fontSize: 11 }} 
+                    tick={{ fontSize: 11, fill: '#374151' }} 
                   />
                   <YAxis 
-                    tick={{ fontSize: 11 }}
+                    tick={{ fontSize: 11, fill: '#374151' }}
                     width={50}
-                    label={{ value: 'Hours', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 11 } }}
+                    label={{ value: 'Hours', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 11, fill: '#374151' } }}
                   />
                   <Tooltip 
                     contentStyle={{ 
-                      borderRadius: 6, 
-                      border: "1px solid hsl(var(--border))",
-                      backgroundColor: 'hsl(var(--card))',
+                      borderRadius: 8, 
+                      border: "2px solid #e5e7eb",
+                      backgroundColor: '#ffffff',
                       fontSize: 11,
-                      padding: '6px 10px',
+                      padding: '8px 12px',
                     }} 
                     formatter={(value: number) => [`${value.toFixed(1)} hrs`]}
                   />
@@ -282,7 +281,7 @@ export default function Demand() {
                     iconType="line"
                     wrapperStyle={{ fontSize: '11px', paddingTop: '4px', lineHeight: '20px' }}
                     formatter={(value: string) => (
-                      <span style={{ fontSize: '11px', color: 'hsl(var(--foreground))' }}>{value}</span>
+                      <span style={{ fontSize: '11px', color: '#111827' }}>{value}</span>
                     )}
                   />
                   {recipeNames.map((recipe, i) => (
@@ -301,9 +300,9 @@ export default function Demand() {
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 py-10 text-center">
-                <p className="text-sm font-medium text-foreground">No recipe demand data</p>
-                <p className="text-xs text-muted-foreground mt-1">Select a date range or scenario with planning data</p>
+              <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 py-10 text-center">
+                <p className="text-sm font-medium text-gray-900">No recipe demand data</p>
+                <p className="text-xs text-gray-600 mt-1">Select a date range or scenario with planning data</p>
               </div>
             )}
           </ChartContainer>

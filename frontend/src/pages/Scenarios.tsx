@@ -6,7 +6,8 @@ import { useFilters } from "@/context/FilterContext";
 import { fetchExecutiveKpis, fetchMillCapacity, type ExecutiveKpis } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Play, RefreshCw } from "lucide-react";
+import { Play, RefreshCw } from "lucide-react";
+import { PageLoader } from "@/components/PageLoader";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
@@ -130,10 +131,7 @@ export default function Scenarios() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex h-64 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-3 text-sm text-muted-foreground">Loading scenario comparison...</span>
-        </div>
+        <PageLoader message="Loading scenario comparison…" />
       </DashboardLayout>
     );
   }
@@ -142,12 +140,12 @@ export default function Scenarios() {
     <DashboardLayout>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Scenarios & What-If Studio</h1>
-          <p className="text-sm text-muted-foreground">Compare any scenario against baseline using real backend data</p>
+          <h1 className="text-3xl font-bold text-gray-900">Scenarios & What-If Studio</h1>
+          <p className="text-sm text-gray-600 mt-1">Compare any scenario against baseline using real backend data</p>
         </div>
         <div className="flex items-center gap-2">
           <Select value={selectedScenario} onValueChange={setSelectedScenario}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-48 border-2 border-gray-200 bg-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -158,7 +156,7 @@ export default function Scenarios() {
           </Select>
           <button
             onClick={() => loadData(selectedScenario)}
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors shadow-md"
           >
             <RefreshCw className="h-4 w-4" />
             Refresh
@@ -213,22 +211,22 @@ export default function Scenarios() {
           {comparisonRows.length > 0 ? (
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-secondary">
+                <tr className="bg-gray-100">
                   {["Metric", "Base", scenarioName, "\u0394"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase text-muted-foreground">{h}</th>
+                    <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase text-gray-700">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {comparisonRows.map((row, i) => (
-                  <tr key={row.metric} className={cn("border-t border-border", i % 2 === 0 ? "bg-card" : "bg-accent/20")}>
-                    <td className="px-4 py-3 text-xs font-medium">{row.metric}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{row.base}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{row.scenario}</td>
+                  <tr key={row.metric} className={cn("border-t border-gray-200", i % 2 === 0 ? "bg-white" : "bg-gray-50")}>
+                    <td className="px-4 py-3 text-xs font-medium text-gray-900">{row.metric}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-800">{row.base}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-800">{row.scenario}</td>
                     <td
                       className={cn(
                         "px-4 py-3 font-mono text-xs font-bold",
-                        row.delta > 0 ? "text-destructive" : row.delta < 0 ? "text-success" : "text-muted-foreground"
+                        row.delta > 0 ? "text-red-600" : row.delta < 0 ? "text-emerald-600" : "text-gray-500"
                       )}
                     >
                       {row.delta > 0 ? "+" : ""}
@@ -239,7 +237,7 @@ export default function Scenarios() {
               </tbody>
             </table>
           ) : (
-            <p className="py-8 text-center text-sm text-muted-foreground">No comparison data.</p>
+            <p className="py-8 text-center text-sm text-gray-600">No comparison data.</p>
           )}
         </ChartContainer>
 
@@ -253,22 +251,22 @@ export default function Scenarios() {
                   barCategoryGap="25%"
                   margin={{ top: 10, right: 20, bottom: 60, left: 50 }}
                 >
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="mill" tick={{ fontSize: 12 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="mill" tick={{ fontSize: 12, fill: '#374151' }} />
                 <YAxis 
-                  tick={{ fontSize: 12 }} 
+                  tick={{ fontSize: 12, fill: '#374151' }} 
                   label={{ 
                     value: "Overload (hrs)", 
                     angle: -90, 
                     position: "left", 
-                    style: { textAnchor: 'middle' },
+                    style: { textAnchor: 'middle', fill: '#374151' },
                     fontSize: 11 
                   }} 
                 />
                 <Tooltip 
                   contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
+                    backgroundColor: '#ffffff',
+                    border: '2px solid #e5e7eb',
                     borderRadius: '8px'
                   }}
                 />
@@ -276,15 +274,15 @@ export default function Scenarios() {
                   wrapperStyle={{ paddingTop: '10px' }}
                   iconSize={10}
                   iconType="rect"
-                  formatter={(value) => <span style={{ fontSize: '11px' }}>{value}</span>}
+                  formatter={(value) => <span style={{ fontSize: '11px', color: '#111827' }}>{value}</span>}
                 />
-                <Bar dataKey="base" name="Base" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="scenario" name={scenarioName} fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="base" name="Base" fill="#6b7280" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="scenario" name={scenarioName} fill="#f97316" radius={[4, 4, 0, 0]} />
               </BarChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="py-8 text-center text-sm text-muted-foreground">No mill data available.</p>
+            <p className="py-8 text-center text-sm text-gray-600">No mill data available.</p>
           )}
         </ChartContainer>
       </div>

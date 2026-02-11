@@ -21,8 +21,8 @@ interface MillCapacityProps {
 
 // Gantt recipe colors
 const RECIPE_COLORS: Record<string, string> = {
-  '80 Straight': '#FF8C42',
-  '80/70 Blend': '#5d4037',
+  '80 Straight': 'hsl(var(--primary))',
+  '80/70 Blend': 'hsl(var(--logo-brown))',
   '72 Extraction': '#0ea5e9',
   '55 Pastry': '#10b981',
   '90 Whole Wheat': '#f59e0b',
@@ -149,7 +149,7 @@ export default function MillCapacity({ fromDate, toDate, scenario = 'base' }: Mi
     return (
       <div className="flex items-center justify-center h-64">
         <div className="flex items-center gap-2 text-brown-500">
-          <div className="h-5 w-5 rounded-full border-2 border-brown-300 border-t-orange-500 animate-spin" />
+          <div className="h-5 w-5 rounded-full border-2 border-brown-300 border-t-primary animate-spin" />
           <span>Loading mill capacity…</span>
         </div>
       </div>
@@ -341,15 +341,15 @@ export default function MillCapacity({ fromDate, toDate, scenario = 'base' }: Mi
             <div className="w-full overflow-x-auto">
               <BarChart data={sortedData} width={chartWidth} height={350} margin={{ top: 20, right: 30, left: 60, bottom: 40 }} barCategoryGap="15%">
                 <CartesianGrid strokeDasharray="3 3" stroke="#e8ddd0" opacity={0.5} />
-                <XAxis dataKey="mill_name" tick={{ fill: '#5d4037', fontSize: 11 }} tickLine={{ stroke: '#8d6e63' }} />
-                <YAxis tick={{ fill: '#5d4037', fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v} label={{ value: 'Hours', angle: -90, position: 'insideLeft', fill: '#5d4037', style: { fontSize: 12, fontWeight: 600 } }} />
+                <XAxis dataKey="mill_name" tick={{ fill: 'hsl(var(--logo-brown))', fontSize: 11 }} tickLine={{ stroke: 'hsl(var(--border))' }} />
+                <YAxis tick={{ fill: 'hsl(var(--logo-brown))', fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v} label={{ value: 'Hours', angle: -90, position: 'insideLeft', fill: 'hsl(var(--logo-brown))', style: { fontSize: 12, fontWeight: 600 } }} />
                 <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #8d6e63', borderRadius: '8px', padding: '8px' }} />
                 <Legend wrapperStyle={{ fontSize: 12, paddingTop: '12px' }} />
                 <Bar dataKey="available_hours" fill="#cbd5e1" name="Available" radius={[6, 6, 0, 0]} maxBarSize={60} />
                 <Bar dataKey="scheduled_hours" name="Planned" radius={[6, 6, 0, 0]} maxBarSize={60}>
                   {(sortedData as any[]).map((entry: any, idx: number) => {
                     const util = entry.available_hours > 0 ? entry.scheduled_hours / entry.available_hours : 0;
-                    const color = util > 1 ? '#ef4444' : util > 0.9 ? '#f59e0b' : '#FF8C42';
+                    const color = util > 1 ? '#ef4444' : util > 0.9 ? '#f59e0b' : 'hsl(var(--primary))';
                     return <Cell key={idx} fill={color} />;
                   })}
                 </Bar>

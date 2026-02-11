@@ -59,6 +59,8 @@ export default {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        logoGold: "hsl(var(--logo-gold))",
+        logoBrown: "hsl(var(--logo-brown))",
         rust: "hsl(var(--rust))",
         beige: "hsl(var(--beige))",
         cream: "hsl(var(--cream))",

@@ -79,7 +79,7 @@ export default function RawMaterials({ fromDate, toDate, scenario = 'base' }: Ra
   }, [rawMaterialData, backendKpis]);
 
   const kpis = [
-    { label: 'Total Wheat Req.', value: kpiValues.totalReq, icon: Package, color: 'text-orange-600', bgColor: 'bg-orange-50' },
+    { label: 'Total Wheat Req.', value: kpiValues.totalReq, icon: Package, color: 'text-primary', bgColor: 'bg-accent' },
     { label: 'Avg Wheat Cost', value: kpiValues.avgCost, icon: DollarSign, color: 'text-red-600', bgColor: 'bg-red-50' },
     { label: 'Import Dependency', value: kpiValues.importDependency, icon: Globe, color: 'text-blue-600', bgColor: 'bg-blue-50' },
     { label: 'High-Risk Share', value: kpiValues.highRisk, icon: AlertTriangle, color: 'text-amber-600', bgColor: 'bg-amber-50' },
@@ -135,13 +135,13 @@ export default function RawMaterials({ fromDate, toDate, scenario = 'base' }: Ra
     return { mapOrigins: origins, mapTotalVolume: total, mapAvgCostAll: avg };
   }, [rawMaterialData]);
 
-  const colorPalette = ['#FF8C42', '#FF9500', '#5d4037', '#8d6e63', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444'];
+  const colorPalette = ['hsl(var(--primary))', 'hsl(var(--logo-gold))', 'hsl(var(--logo-brown))', '#8d6e63', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444'];
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="flex items-center gap-2 text-brown-500">
-          <div className="h-5 w-5 rounded-full border-2 border-brown-300 border-t-orange-500 animate-spin" />
+          <div className="h-5 w-5 rounded-full border-2 border-brown-300 border-t-primary animate-spin" />
           <span>Loading raw materials…</span>
         </div>
       </div>
@@ -195,8 +195,8 @@ export default function RawMaterials({ fromDate, toDate, scenario = 'base' }: Ra
             <div className="w-full overflow-x-auto">
               <LineChart data={chartData} width={chartWidth} height={400} margin={{ top: 20, right: 30, left: 60, bottom: 50 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e8ddd0" opacity={0.5} />
-                <XAxis dataKey="period" tick={{ fill: '#5d4037', fontSize: 10 }} angle={dataLength > 12 ? -45 : 0} textAnchor={dataLength > 12 ? 'end' : 'middle'} />
-                <YAxis tick={{ fill: '#5d4037', fontSize: 11 }} tickFormatter={(v) => `${v.toLocaleString()} SAR`} label={{ value: 'Price (SAR/ton)', angle: -90, position: 'insideLeft', fill: '#5d4037', style: { fontSize: 12, fontWeight: 600 } }} />
+                <XAxis dataKey="period" tick={{ fill: 'hsl(var(--logo-brown))', fontSize: 10 }} angle={dataLength > 12 ? -45 : 0} textAnchor={dataLength > 12 ? 'end' : 'middle'} />
+                <YAxis tick={{ fill: 'hsl(var(--logo-brown))', fontSize: 11 }} tickFormatter={(v) => `${v.toLocaleString()} SAR`} label={{ value: 'Price (SAR/ton)', angle: -90, position: 'insideLeft', fill: 'hsl(var(--logo-brown))', style: { fontSize: 12, fontWeight: 600 } }} />
                 <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #8d6e63', borderRadius: '8px', padding: '8px' }} formatter={(value: any) => [`${typeof value === 'number' ? value.toFixed(2) : value} SAR`]} />
                 <Legend wrapperStyle={{ fontSize: 12, paddingTop: '12px' }} />
                 {countries.map((country, idx) => (

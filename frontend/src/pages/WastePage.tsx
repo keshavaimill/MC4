@@ -5,7 +5,7 @@ import { ChartContainer } from "@/components/dashboard/ChartContainer";
 import { useFilters } from "@/context/FilterContext";
 import { fetchSustainabilityKpis, fetchWasteMetrics, type SustainabilityKpis } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import { PageLoader } from "@/components/PageLoader";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart, ComposedChart, ReferenceLine,
 } from "recharts";
@@ -108,10 +108,7 @@ export default function WastePage() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex h-64 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-3 text-sm text-muted-foreground">Loading sustainability data...</span>
-        </div>
+        <PageLoader message="Loading sustainability data…" />
       </DashboardLayout>
     );
   }
@@ -119,8 +116,8 @@ export default function WastePage() {
   return (
     <DashboardLayout>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Waste & Vision 2030</h1>
-        <p className="text-sm text-muted-foreground">Waste tracking by recipe and mill, sustainability targets</p>
+        <h1 className="text-3xl font-bold text-gray-900">Waste & Vision 2030</h1>
+        <p className="text-sm text-gray-600 mt-1">Waste tracking by recipe and mill, sustainability targets</p>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
@@ -137,31 +134,28 @@ export default function WastePage() {
               <table className="w-full text-sm">
               <thead>
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Mill</th>
+                  <th className="px-3 py-2 text-left text-xs font-bold text-gray-700">Mill</th>
                   {heatmapData.recipes.map((r) => (
-                    <th key={r} className="px-3 py-2 text-center text-xs font-semibold text-muted-foreground">{r}</th>
+                    <th key={r} className="px-3 py-2 text-center text-xs font-bold text-gray-700">{r}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {heatmapData.mills.map((mill) => (
                   <tr key={mill}>
-                    <td className="px-3 py-2 font-semibold text-foreground">{mill}</td>
+                    <td className="px-3 py-2 font-semibold text-gray-900">{mill}</td>
                     {heatmapData.recipes.map((recipe) => {
                       const val = heatmapData.matrix[mill]?.[recipe] || 0;
-                      // Calculate color intensity: darker = higher waste %
-                      // Normalize to 0-1 range, assuming max waste is around 6%
                       const maxWaste = Math.max(6, ...Object.values(heatmapData.matrix).flatMap(m => Object.values(m)));
                       const intensity = Math.min(1, val / maxWaste);
-                      // Use darker red for higher waste
-                      const opacity = 0.3 + (intensity * 0.7); // Range from 0.3 to 1.0
+                      const opacity = 0.3 + (intensity * 0.7);
                       return (
                         <td key={recipe} className="px-3 py-2 text-center">
                           <div
                             className="mx-auto flex h-10 w-16 items-center justify-center rounded-md font-mono text-xs font-bold"
                             style={{
-                              backgroundColor: `hsl(var(--destructive) / ${opacity})`,
-                              color: intensity > 0.4 ? "white" : "hsl(var(--foreground))",
+                              backgroundColor: `rgba(220, 38, 38, ${opacity})`,
+                              color: intensity > 0.4 ? "white" : "#111827",
                             }}
                           >
                             {val.toFixed(1)}%
@@ -175,7 +169,7 @@ export default function WastePage() {
             </table>
             </div>
           ) : (
-            <p className="py-8 text-center text-sm text-muted-foreground">No waste data available.</p>
+            <p className="py-8 text-center text-sm text-gray-600">No waste data available.</p>
           )}
         </ChartContainer>
 
@@ -185,33 +179,33 @@ export default function WastePage() {
             <div className="w-full" style={{ height: '400px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={trendData} margin={{ top: 10, right: 20, bottom: 10, left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="period" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} domain={["auto", "auto"]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="period" tick={{ fontSize: 11, fill: '#374151' }} />
+                  <YAxis tick={{ fontSize: 11, fill: '#374151' }} domain={["auto", "auto"]} />
                   <Tooltip 
                     contentStyle={{ 
                       borderRadius: 8, 
-                      border: "1px solid hsl(var(--border))",
-                      backgroundColor: 'hsl(var(--card))'
+                      border: "2px solid #e5e7eb",
+                      backgroundColor: '#ffffff'
                     }} 
                   />
                   <Legend 
                     wrapperStyle={{ paddingTop: '10px' }}
                     iconSize={10}
                     iconType="rect"
-                    formatter={(value) => <span style={{ fontSize: '11px' }}>{value}</span>}
+                    formatter={(value) => <span style={{ fontSize: '11px', color: '#111827' }}>{value}</span>}
                   />
                   <Area 
                     dataKey="actual" 
                     name="Actual" 
-                    stroke="hsl(var(--primary))" 
-                    fill="hsl(var(--primary) / 0.1)" 
+                    stroke="#f97316" 
+                    fill="rgba(249, 115, 22, 0.15)" 
                     strokeWidth={2} 
                   />
                   <Line 
                     dataKey="target" 
                     name="Target" 
-                    stroke="hsl(var(--success))" 
+                    stroke="#059669" 
                     strokeDasharray="6 3" 
                     strokeWidth={2} 
                     dot={false}
@@ -221,7 +215,7 @@ export default function WastePage() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="py-8 text-center text-sm text-muted-foreground">No trend data available.</p>
+            <p className="py-8 text-center text-sm text-gray-600">No trend data available.</p>
           )}
         </ChartContainer>
       </div>

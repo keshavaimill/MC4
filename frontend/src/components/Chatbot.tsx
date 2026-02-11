@@ -154,7 +154,7 @@ export default function Chatbot() {
       {!isOpen && (
         <button
           onClick={toggleChat}
-          className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-full shadow-2xl hover:from-orange-600 hover:to-brown-600 transition-all duration-300 flex items-center justify-center z-50 hover:scale-110"
+          className="fixed bottom-6 right-6 w-16 h-16 bg-primary text-white rounded-full shadow-2xl hover:opacity-90 transition-all duration-300 flex items-center justify-center z-50 hover:scale-110"
           aria-label="Open AI Assistant"
         >
           <UserCircle className="w-7 h-7" />
@@ -169,12 +169,12 @@ export default function Chatbot() {
       {/* Chat Window */}
       {isOpen && (
         <div
-          className={`fixed bottom-6 right-6 bg-white rounded-lg shadow-2xl border border-brown-200 flex flex-col z-50 transition-all duration-300 ${
+          className={`fixed bottom-6 right-6 bg-white rounded-xl shadow-2xl border-2 border-gray-200 flex flex-col z-50 transition-all duration-300 ${
             isMinimized ? 'w-80 h-16' : 'w-96 h-[600px]'
           }`}
         >
           {/* Header */}
-          <div className="h-14 bg-gradient-to-r from-orange-500 to-orange-600 text-white flex items-center justify-between px-4 rounded-t-lg flex-shrink-0">
+          <div className="h-14 bg-primary text-white flex items-center justify-between px-4 rounded-t-xl flex-shrink-0">
             <div className="flex items-center space-x-2">
               <UserCircle className="w-5 h-5" />
               {isMinimized ? (
@@ -210,8 +210,8 @@ export default function Chatbot() {
 
           {/* Minimized view - show last message preview */}
           {isMinimized && (
-            <div className="flex-1 px-4 flex items-center">
-              <p className="text-sm text-brown-600 truncate">
+            <div className="flex-1 px-4 flex items-center bg-gray-50">
+              <p className="text-sm text-gray-700 truncate">
                 {messages[messages.length - 1]?.content.substring(0, 50)}
                 {(messages[messages.length - 1]?.content.length ?? 0) > 50 ? '...' : ''}
               </p>
@@ -225,7 +225,7 @@ export default function Chatbot() {
                 {/* Example Questions - Show only when there's just the welcome message */}
                 {messages.length === 1 && (
                   <div className="space-y-3 mb-4">
-                    <p className="text-xs font-semibold text-brown-600 uppercase tracking-wide">
+                    <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
                       Try asking:
                     </p>
                     <div className="grid grid-cols-1 gap-2">
@@ -233,7 +233,7 @@ export default function Chatbot() {
                         onClick={() =>
                           handleExampleClick('What is the total forecast for SKU001 this month?')
                         }
-                        className="text-left px-3 py-2 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg text-sm text-brown-700 transition-colors"
+                        className="text-left px-3 py-2 bg-accent hover:bg-accent/80 border-2 border-primary/30 rounded-lg text-sm text-foreground transition-colors"
                       >
                         📊 What is the total forecast for SKU001 this month?
                       </button>
@@ -241,7 +241,7 @@ export default function Chatbot() {
                         onClick={() =>
                           handleExampleClick('Show me mill utilization for all mills last week')
                         }
-                        className="text-left px-3 py-2 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg text-sm text-brown-700 transition-colors"
+                        className="text-left px-3 py-2 bg-accent hover:bg-accent/80 border-2 border-primary/30 rounded-lg text-sm text-foreground transition-colors"
                       >
                         🏭 Show me mill utilization for all mills last week
                       </button>
@@ -249,7 +249,7 @@ export default function Chatbot() {
                         onClick={() =>
                           handleExampleClick('Which recipes are used for Superior flour?')
                         }
-                        className="text-left px-3 py-2 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg text-sm text-brown-700 transition-colors"
+                        className="text-left px-3 py-2 bg-accent hover:bg-accent/80 border-2 border-primary/30 rounded-lg text-sm text-foreground transition-colors"
                       >
                         🥖 Which recipes are used for Superior flour?
                       </button>
@@ -259,7 +259,7 @@ export default function Chatbot() {
                             'What is the bulk flour demand for Bakery flour in January 2020?'
                           )
                         }
-                        className="text-left px-3 py-2 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg text-sm text-brown-700 transition-colors"
+                        className="text-left px-3 py-2 bg-accent hover:bg-accent/80 border-2 border-primary/30 rounded-lg text-sm text-foreground transition-colors"
                       >
                         📦 What is the bulk flour demand for Bakery flour in January 2020?
                       </button>
@@ -269,7 +269,7 @@ export default function Chatbot() {
                             'Show me the production schedule for M1 mill on 2020-01-01'
                           )
                         }
-                        className="text-left px-3 py-2 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg text-sm text-brown-700 transition-colors"
+                        className="text-left px-3 py-2 bg-accent hover:bg-accent/80 border-2 border-primary/30 rounded-lg text-sm text-foreground transition-colors"
                       >
                         ⚙️ Show me the production schedule for M1 mill on 2020-01-01
                       </button>
@@ -277,7 +277,7 @@ export default function Chatbot() {
                         onClick={() =>
                           handleExampleClick('What is the wheat price in Saudi Arabia?')
                         }
-                        className="text-left px-3 py-2 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg text-sm text-brown-700 transition-colors"
+                        className="text-left px-3 py-2 bg-accent hover:bg-accent/80 border-2 border-primary/30 rounded-lg text-sm text-foreground transition-colors"
                       >
                         🌾 What is the wheat price in Saudi Arabia?
                       </button>
@@ -285,7 +285,7 @@ export default function Chatbot() {
                         onClick={() =>
                           handleExampleClick('Show me overload hours for all mills in 2020')
                         }
-                        className="text-left px-3 py-2 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg text-sm text-brown-700 transition-colors"
+                        className="text-left px-3 py-2 bg-accent hover:bg-accent/80 border-2 border-primary/30 rounded-lg text-sm text-foreground transition-colors"
                       >
                         ⚠️ Show me overload hours for all mills in 2020
                       </button>
@@ -293,7 +293,7 @@ export default function Chatbot() {
                         onClick={() =>
                           handleExampleClick('What recipes can produce Bakery flour?')
                         }
-                        className="text-left px-3 py-2 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg text-sm text-brown-700 transition-colors"
+                        className="text-left px-3 py-2 bg-accent hover:bg-accent/80 border-2 border-primary/30 rounded-lg text-sm text-foreground transition-colors"
                       >
                         🔄 What recipes can produce Bakery flour?
                       </button>
@@ -307,11 +307,11 @@ export default function Chatbot() {
                       message.role === 'user' ? 'justify-end' : 'justify-start'
                     }`}
                   >
-                    <div
+                      <div
                       className={`max-w-[80%] rounded-lg p-3 ${
                         message.role === 'user'
-                          ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
-                          : 'bg-brown-50 text-brown-900 border border-brown-200'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-foreground border-2 border-border'
                       }`}
                     >
                       <div className="flex items-start space-x-2">
@@ -362,7 +362,7 @@ export default function Chatbot() {
                                   </tbody>
                                 </table>
                                 {message.data.length > 10 && (
-                                  <p className="text-xs mt-2 text-brown-600">
+                                  <p className="text-xs mt-2 text-gray-600">
                                     Showing first 10 of {message.data.length} rows
                                   </p>
                                 )}
@@ -383,7 +383,7 @@ export default function Chatbot() {
                               <button
                                 onClick={() => handleEmailInsight(idx)}
                                 disabled={emailing === idx}
-                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-orange-500/10 text-orange-600 rounded-md hover:bg-orange-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-accent text-primary rounded-md hover:bg-accent/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <Mail className={`w-3.5 h-3.5 ${emailing === idx ? 'animate-pulse' : ''}`} />
                                 {emailing === idx ? 'Sending...' : 'Email this insight'}
@@ -397,10 +397,10 @@ export default function Chatbot() {
                 ))}
                 {loading && (
                   <div className="flex justify-start">
-                    <div className="bg-brown-50 border border-brown-200 rounded-lg p-3">
+                    <div className="bg-gray-100 border-2 border-gray-200 rounded-lg p-3">
                       <div className="flex items-center space-x-2">
-                        <UserCircle className="w-4 h-4 animate-pulse text-orange-500" />
-                        <span className="text-sm text-brown-700">Thinking...</span>
+                        <UserCircle className="w-4 h-4 animate-pulse text-primary" />
+                        <span className="text-sm text-gray-700">Thinking...</span>
                       </div>
                     </div>
                   </div>
@@ -409,7 +409,7 @@ export default function Chatbot() {
               </div>
 
               {/* Input */}
-              <div className="h-16 border-t border-brown-200 p-4 flex-shrink-0 bg-brown-50">
+              <div className="h-16 border-t-2 border-gray-200 p-4 flex-shrink-0 bg-gray-50">
                 <div className="flex items-center space-x-2">
                   <input
                     type="text"
@@ -417,13 +417,13 @@ export default function Chatbot() {
                     onChange={(e) => setInput(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend(undefined)}
                     placeholder="Ask about forecasts, recipes, capacity..."
-                    className="flex-1 px-3 py-2 border border-brown-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm text-brown-700 bg-white"
+                    className="flex-1 px-3 py-2 border-2 border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm text-foreground bg-background"
                     disabled={loading}
                   />
                   <button
                     onClick={() => handleSend()}
                     disabled={loading || !input.trim()}
-                    className="p-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-brown-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                    className="p-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
                     aria-label="Send message"
                   >
                     <Send className="w-4 h-4" />

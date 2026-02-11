@@ -45,62 +45,62 @@ export function ExplainabilityFooter() {
   const [activeSection, setActiveSection] = useState<string | null>(null);
 
   return (
-    <footer className="sticky bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+    <footer className="sticky bottom-0 z-40 border-t-2 border-gray-200 bg-white/95 backdrop-blur shadow-lg supports-[backdrop-filter]:bg-white/90">
       {/* Collapsed bar */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex h-10 w-full items-center justify-between px-6 text-xs text-muted-foreground transition-colors duration-200 ease-out hover:text-foreground"
+        className="flex h-12 w-full items-center justify-between px-6 text-xs text-gray-600 transition-colors duration-200 ease-out hover:text-gray-900 hover:bg-gray-50"
       >
-        <div className="flex items-center gap-3">
-          <Info className="h-3.5 w-3.5 text-primary" />
-          <span className="font-medium">How was this calculated?</span>
-          <span className="text-muted-foreground/60">|</span>
-          <span>Last refresh: {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
-          <span className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">
+        <div className="flex items-center gap-4">
+          <Info className="h-4 w-4 text-primary" />
+          <span className="font-semibold text-gray-900">How was this calculated?</span>
+          <span className="text-gray-300">|</span>
+          <span className="text-gray-600">Last refresh: {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
             Confidence: 92%
           </span>
         </div>
-        {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+        {expanded ? <ChevronDown className="h-5 w-5 text-gray-600" /> : <ChevronUp className="h-5 w-5 text-gray-600" />}
       </button>
 
       {/* Expanded content */}
       {expanded && (
-        <div className="max-h-[280px] overflow-y-auto border-t border-border px-6 py-4">
+        <div className="max-h-[320px] overflow-y-auto border-t-2 border-gray-200 bg-gradient-to-b from-gray-50 to-white px-6 py-5">
           <div className="grid gap-4 md:grid-cols-3">
             {sections.map((section) => (
-              <div key={section.id} className="rounded-lg border border-border bg-accent/30 p-4">
+              <div key={section.id} className="rounded-xl border-2 border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
                 <button
                   onClick={() => setActiveSection(activeSection === section.id ? null : section.id)}
-                  className="flex w-full items-center gap-2 text-left"
+                  className="flex w-full items-center gap-3 text-left hover:opacity-80 transition-opacity"
                 >
-                  <section.icon className="h-4 w-4 text-primary shrink-0" />
-                  <span className="text-xs font-semibold text-foreground">{section.title}</span>
+                  <section.icon className="h-5 w-5 text-primary shrink-0" />
+                  <span className="text-sm font-bold text-gray-900">{section.title}</span>
                   {activeSection === section.id ? (
-                    <ChevronUp className="ml-auto h-3 w-3 text-muted-foreground" />
+                    <ChevronUp className="ml-auto h-4 w-4 text-gray-600" />
                   ) : (
-                    <ChevronDown className="ml-auto h-3 w-3 text-muted-foreground" />
+                    <ChevronDown className="ml-auto h-4 w-4 text-gray-600" />
                   )}
                 </button>
 
                 {activeSection === section.id && (
-                  <div className="mt-3 space-y-1">
+                  <div className="mt-4 space-y-2">
                     {section.content && section.content.map((line, i) => (
-                      <p key={i} className="text-[11px] text-muted-foreground leading-relaxed">{line}</p>
+                      <p key={i} className="text-xs text-gray-700 leading-relaxed">{line}</p>
                     ))}
                     {section.rows && (
-                      <table className="w-full text-[11px]">
+                      <table className="w-full text-xs mt-3">
                         <thead>
-                          <tr>
+                          <tr className="border-b-2 border-gray-200">
                             {["Recipe", "Yield", "Time", "Cost"].map((h) => (
-                              <th key={h} className="pb-1 text-left font-semibold text-muted-foreground">{h}</th>
+                              <th key={h} className="pb-2 text-left font-bold text-gray-700">{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {section.rows.map((row, i) => (
-                            <tr key={i}>
+                            <tr key={i} className="border-b border-gray-100">
                               {row.map((cell, j) => (
-                                <td key={j} className={cn("py-0.5", j === 0 ? "font-medium text-foreground" : "font-mono text-muted-foreground")}>{cell}</td>
+                                <td key={j} className={cn("py-2", j === 0 ? "font-semibold text-gray-900" : "font-mono text-gray-600")}>{cell}</td>
                               ))}
                             </tr>
                           ))}

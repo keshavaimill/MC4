@@ -156,7 +156,7 @@ export default function RecipePlanning({ fromDate, toDate, scenario = 'base' }: 
   }, [sliderValues, recipeCostInfo, backendKpis]);
 
   const kpis = [
-    { label: 'Planned Recipe Hours', value: kpiValues.plannedHours, icon: Clock, color: 'text-orange-600', bgColor: 'bg-orange-50' },
+    { label: 'Planned Recipe Hours', value: kpiValues.plannedHours, icon: Clock, color: 'text-primary', bgColor: 'bg-accent' },
     { label: 'Available Mill Hours', value: kpiValues.availableHours, icon: Settings, color: 'text-blue-600', bgColor: 'bg-blue-50' },
     { label: 'Slack / Shortfall', value: kpiValues.slack, icon: kpiValues.slackPositive ? CheckCircle : AlertTriangle, color: kpiValues.slackPositive ? 'text-green-600' : 'text-red-600', bgColor: kpiValues.slackPositive ? 'bg-green-50' : 'bg-red-50' },
     { label: 'Wheat Cost Index', value: kpiValues.wheatCostIndex, icon: DollarSign, color: 'text-brown-600', bgColor: 'bg-brown-100' },
@@ -181,7 +181,7 @@ export default function RecipePlanning({ fromDate, toDate, scenario = 'base' }: 
     return (
       <div className="flex items-center justify-center h-64">
         <div className="flex items-center gap-2 text-brown-500">
-          <div className="h-5 w-5 rounded-full border-2 border-brown-300 border-t-orange-500 animate-spin" />
+          <div className="h-5 w-5 rounded-full border-2 border-brown-300 border-t-primary animate-spin" />
           <span>Loading recipe planning…</span>
         </div>
       </div>
@@ -275,7 +275,7 @@ export default function RecipePlanning({ fromDate, toDate, scenario = 'base' }: 
                   <div className="flex items-center space-x-3">
                     <div className="flex-1 bg-brown-100 rounded-full h-4 overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all duration-300 ${isOverloaded ? 'bg-red-500' : 'bg-gradient-to-r from-orange-400 to-orange-500'}`}
+                        className={`h-full rounded-full transition-all duration-300 ${isOverloaded ? 'bg-red-500' : 'bg-primary'}`}
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -290,7 +290,7 @@ export default function RecipePlanning({ fromDate, toDate, scenario = 'base' }: 
                           [item.recipe_name]: Number(e.target.value),
                         }));
                       }}
-                      className="w-24 accent-orange-500"
+                      className="w-24 accent-primary"
                     />
                   </div>
                 </div>

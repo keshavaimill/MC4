@@ -66,30 +66,29 @@ export default function Login() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-amber/30 via-background to-secondary">
-      {/* Subtle wheat pattern overlay */}
-      <div className="absolute inset-0 opacity-[0.06]" style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23D85B2B' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-      }} />
-
-      <div className="relative z-10 w-full max-w-lg rounded-2xl border border-border bg-card/95 p-10 shadow-2xl backdrop-blur">
-        <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
-            <img
-              src="/MC4_Logo.webp"
-              alt="MC4 logo"
-              className="h-12 w-12 rounded-md object-contain"
-            />
+    <div className="min-h-screen w-full bg-gradient-to-b from-white to-gray-50 px-4 py-10 sm:py-16 flex flex-col items-center justify-center">
+      <div className="w-full max-w-md mx-auto">
+        <div className="mb-4 sm:mb-6 flex justify-center">
+          <div className="h-14 sm:h-16 w-14 sm:w-16 rounded-2xl border border-border/70 bg-white/80 flex items-center justify-center shadow-card overflow-hidden">
+            <img src="/MC4_Logo.webp" alt="MC4 logo" className="h-10 sm:h-12 w-10 sm:w-12 object-contain" loading="lazy" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">MC4 Planning Platform</h1>
-          <p className="text-sm text-muted-foreground">Sign in with your MC4 account</p>
+        </div>
+        <div className="mb-6 sm:mb-8 text-center space-y-2">
+          <p className="text-[10px] sm:text-xs uppercase tracking-[0.4em] text-muted-foreground">MC4</p>
+          <h1 className="mt-2 text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">Operations Command Center</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Sign in to continue</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="mb-6 space-y-4">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              Work email
-            </label>
+        <div className="section-shell border-border/70 bg-white/90 p-6 sm:p-8">
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-foreground">Login</h2>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
+                Work email
+              </label>
             <Input
               type="email"
               autoComplete="email"
@@ -100,7 +99,7 @@ export default function Login() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            <label className="mb-1 block text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
               Password
             </label>
             <Input
@@ -112,41 +111,42 @@ export default function Login() {
               className="text-sm"
             />
           </div>
-          <Button
-            type="submit"
-            className="mt-2 w-full"
-            disabled={loading || submitting}
-          >
-            {loading || submitting ? "Signing in…" : "Sign in"}
-          </Button>
-        </form>
-
-        <div className="grid gap-3 text-xs text-muted-foreground">
-          <p className="font-semibold text-foreground">
-            Role-based access
-          </p>
-          {roles.map((role) => (
-            <button
-              key={role.id}
-              type="button"
-              onClick={() => {
-                const creds = roleCredentials[role.id];
-                if (creds) {
-                  setEmail(creds.email);
-                  setPassword(creds.password);
-                }
-              }}
-              className="flex items-center gap-3 rounded-lg border border-border/60 bg-accent/30 px-3 py-2 text-left transition-colors hover:bg-accent/60"
+            <Button
+              type="submit"
+              className="w-full rounded-xl bg-foreground text-primary-foreground hover:opacity-90 font-semibold"
+              disabled={loading || submitting}
             >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <role.icon className="h-4 w-4" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-foreground">{role.title}</div>
-                <div className="text-[11px] text-muted-foreground">{role.description}</div>
-              </div>
-            </button>
-          ))}
+              {loading || submitting ? "Signing in…" : "Login"}
+            </Button>
+          </form>
+
+          <div className="mt-6 pt-4 border-t border-border/60">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-3">Role-based access</p>
+            <div className="grid gap-2">
+              {roles.map((role) => (
+                <button
+                  key={role.id}
+                  type="button"
+                  onClick={() => {
+                    const creds = roleCredentials[role.id];
+                    if (creds) {
+                      setEmail(creds.email);
+                      setPassword(creds.password);
+                    }
+                  }}
+                  className="flex items-center gap-3 rounded-xl border border-border/70 bg-white/70 px-3 py-2.5 text-left transition-all hover:bg-muted/50 hover:border-primary/30"
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
+                    <role.icon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-foreground">{role.title}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{role.description}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>
