@@ -4,8 +4,10 @@ import { KpiTile } from "@/components/dashboard/KpiTile";
 import { ChartContainer } from "@/components/dashboard/ChartContainer";
 import { useFilters } from "@/context/FilterContext";
 import { fetchRawMaterialsKpis, fetchRawMaterial, type RawMaterialsKpis } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, downloadCsv } from "@/lib/utils";
 import { PageLoader } from "@/components/PageLoader";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
 import WheatOriginMap from "@/components/WheatOriginMap";
 
 interface RawMaterialRow {
@@ -137,8 +139,9 @@ export default function Materials() {
   return (
     <DashboardLayout>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Raw Materials & Wheat Origins</h1>
-        <p className="text-sm text-gray-600 mt-1">Global wheat sourcing and price analysis</p>
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Supply</p>
+        <h1 className="text-2xl font-semibold text-foreground">Raw Materials & Wheat Origins</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Global wheat sourcing and price analysis</p>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
@@ -159,12 +162,36 @@ export default function Materials() {
         </ChartContainer>
 
         {/* Country Price Table */}
-        <ChartContainer title="Wheat by Country" subtitle="Average price and availability">
+        <ChartContainer
+          title="Wheat by Country"
+          subtitle="Average price and availability"
+          action={
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => {
+                const rows = byCountry
+                  .sort((a, b) => b.volume - a.volume)
+                  .map((r) => ({
+                    country: r.country,
+                    avg_price_sar_per_ton: Math.round(r.avgCost),
+                    total_availability_tons: r.volume,
+                  }));
+                downloadCsv(rows as unknown as Record<string, unknown>[], "materials_wheat_by_country");
+              }}
+              disabled={byCountry.length === 0}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download CSV
+            </Button>
+          }
+        >
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-100">
+              <tr className="bg-muted/50">
                 {["Country", "Avg Price (SAR/ton)", "Total Availability (tons)", "Cost Level"].map((h) => (
-                  <th key={h} className="px-3 py-2.5 text-left text-xs font-bold uppercase text-gray-700">{h}</th>
+                  <th key={h} className="px-3 py-2.5 text-left text-xs font-bold uppercase text-muted-foreground">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -175,10 +202,10 @@ export default function Materials() {
                   const level =
                     row.avgCost > avgCostAll * 1.1 ? "High" : row.avgCost > avgCostAll * 0.95 ? "Medium" : "Low";
                   return (
-                    <tr key={row.country} className={cn("border-t border-gray-200", i % 2 === 0 ? "bg-white" : "bg-gray-50")}>
-                      <td className="px-3 py-2.5 text-xs font-medium text-gray-900">{row.country}</td>
-                      <td className="px-3 py-2.5 font-mono text-xs text-gray-800">{row.avgCost.toFixed(0)}</td>
-                      <td className="px-3 py-2.5 font-mono text-xs text-gray-800">{row.volume.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                    <tr key={row.country} className={cn("border-t border-border", i % 2 === 0 ? "bg-card" : "bg-muted/20")}>
+                      <td className="px-3 py-2.5 text-xs font-medium text-foreground">{row.country}</td>
+                      <td className="px-3 py-2.5 font-mono text-xs text-foreground">{row.avgCost.toFixed(0)}</td>
+                      <td className="px-3 py-2.5 font-mono text-xs text-foreground">{row.volume.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                       <td className="px-3 py-2.5">
                         <LevelBadge level={level} />
                       </td>
@@ -187,7 +214,7 @@ export default function Materials() {
                 })}
               {byCountry.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-3 py-8 text-center text-xs text-gray-500">No raw material data available.</td>
+                  <td colSpan={4} className="px-3 py-8 text-center text-xs text-muted-foreground">No raw material data available.</td>
                 </tr>
               )}
             </tbody>

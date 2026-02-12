@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Play, RefreshCw } from "lucide-react";
 import { PageLoader } from "@/components/PageLoader";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
 } from "recharts";
 
 const scenarioLabels: Record<string, string> = {
@@ -140,12 +140,13 @@ export default function Scenarios() {
     <DashboardLayout>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Scenarios & What-If Studio</h1>
-          <p className="text-sm text-gray-600 mt-1">Compare any scenario against baseline using real backend data</p>
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Analysis</p>
+          <h1 className="text-2xl font-semibold text-foreground">Scenarios & What-If Studio</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Compare any scenario against baseline using real backend data</p>
         </div>
         <div className="flex items-center gap-2">
           <Select value={selectedScenario} onValueChange={setSelectedScenario}>
-            <SelectTrigger className="w-48 border-2 border-gray-200 bg-white">
+            <SelectTrigger className="w-48 border border-border bg-background">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -156,7 +157,7 @@ export default function Scenarios() {
           </Select>
           <button
             onClick={() => loadData(selectedScenario)}
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors shadow-md"
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-colors"
           >
             <RefreshCw className="h-4 w-4" />
             Refresh
@@ -211,22 +212,22 @@ export default function Scenarios() {
           {comparisonRows.length > 0 ? (
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-100">
+                <tr className="bg-muted/50">
                   {["Metric", "Base", scenarioName, "\u0394"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase text-gray-700">{h}</th>
+                    <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase text-muted-foreground">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {comparisonRows.map((row, i) => (
-                  <tr key={row.metric} className={cn("border-t border-gray-200", i % 2 === 0 ? "bg-white" : "bg-gray-50")}>
-                    <td className="px-4 py-3 text-xs font-medium text-gray-900">{row.metric}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-800">{row.base}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-800">{row.scenario}</td>
+                  <tr key={row.metric} className={cn("border-t border-border", i % 2 === 0 ? "bg-card" : "bg-muted/20")}>
+                    <td className="px-4 py-3 text-xs font-medium text-foreground">{row.metric}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-foreground">{row.base}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-foreground">{row.scenario}</td>
                     <td
                       className={cn(
                         "px-4 py-3 font-mono text-xs font-bold",
-                        row.delta > 0 ? "text-red-600" : row.delta < 0 ? "text-emerald-600" : "text-gray-500"
+                        row.delta > 0 ? "text-red-600" : row.delta < 0 ? "text-emerald-600" : "text-muted-foreground"
                       )}
                     >
                       {row.delta > 0 ? "+" : ""}
@@ -237,52 +238,84 @@ export default function Scenarios() {
               </tbody>
             </table>
           ) : (
-            <p className="py-8 text-center text-sm text-gray-600">No comparison data.</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">No comparison data.</p>
           )}
         </ChartContainer>
 
         {/* Capacity Impact Chart */}
-        <ChartContainer title="Capacity Impact" subtitle="Overload hours by mill">
+        <ChartContainer
+          title="Capacity Impact"
+          subtitle={`Base vs ${scenarioName} · overload hours by mill`}
+        >
           {millOverloadChart.length > 0 ? (
-            <div className="w-full" style={{ height: '300px' }}>
+            <div className="w-full" style={{ height: 300 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
-                  data={millOverloadChart} 
-                  barCategoryGap="25%"
-                  margin={{ top: 10, right: 20, bottom: 60, left: 50 }}
+                <BarChart
+                  data={millOverloadChart}
+                  barCategoryGap="20%"
+                  barGap={6}
+                  margin={{ top: 16, right: 24, bottom: 24, left: 52 }}
                 >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="mill" tick={{ fontSize: 12, fill: '#374151' }} />
-                <YAxis 
-                  tick={{ fontSize: 12, fill: '#374151' }} 
-                  label={{ 
-                    value: "Overload (hrs)", 
-                    angle: -90, 
-                    position: "left", 
-                    style: { textAnchor: 'middle', fill: '#374151' },
-                    fontSize: 11 
-                  }} 
-                />
-                <Tooltip 
-                  contentStyle={{
-                    backgroundColor: '#ffffff',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '8px'
-                  }}
-                />
-                <Legend 
-                  wrapperStyle={{ paddingTop: '10px' }}
-                  iconSize={10}
-                  iconType="rect"
-                  formatter={(value) => <span style={{ fontSize: '11px', color: '#111827' }}>{value}</span>}
-                />
-                <Bar dataKey="base" name="Base" fill="#6b7280" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="scenario" name={scenarioName} fill="#f97316" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.6)" vertical={false} />
+                  <XAxis
+                    dataKey="mill"
+                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                    axisLine={{ stroke: "hsl(var(--border))" }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    domain={[0, (max: number) => Math.max(max * 1.1, 8)]}
+                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                    axisLine={false}
+                    tickLine={{ stroke: "hsl(var(--border) / 0.6)" }}
+                    label={{
+                      value: "Overload (hrs)",
+                      angle: -90,
+                      position: "insideLeft",
+                      style: { textAnchor: "middle", fill: "hsl(var(--muted-foreground))", fontSize: 11 },
+                    }}
+                  />
+                  <RechartsTooltip
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length || !payload[0].payload) return null;
+                      const d = payload[0].payload as { mill: string; base: number; scenario: number };
+                      const delta = d.scenario - d.base;
+                      return (
+                        <div className="rounded-lg border border-border bg-card px-3 py-2.5 shadow-lg">
+                          <p className="text-xs font-semibold text-foreground border-b border-border/60 pb-1.5 mb-1.5">
+                            {d.mill}
+                          </p>
+                          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[11px]">
+                            <span className="text-muted-foreground">Base:</span>
+                            <span className="font-medium tabular-nums">{d.base} hrs</span>
+                            <span className="text-muted-foreground">{scenarioName}:</span>
+                            <span className="font-medium tabular-nums">{d.scenario} hrs</span>
+                            <span className="text-muted-foreground">Delta:</span>
+                            <span className={cn("font-semibold tabular-nums", delta > 0 ? "text-destructive" : delta < 0 ? "text-emerald-600" : "text-muted-foreground")}>
+                              {delta > 0 ? "+" : ""}{delta} hrs
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Bar dataKey="base" name="Base" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} maxBarSize={44} />
+                  <Bar dataKey="scenario" name={scenarioName} fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} maxBarSize={44} />
+                </BarChart>
               </ResponsiveContainer>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-3 mt-1 border-t border-border/60">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-4 rounded-sm shrink-0 bg-[hsl(var(--chart-3))]" />
+                  <span className="text-xs font-semibold text-foreground">Base</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-4 rounded-sm shrink-0 bg-[hsl(var(--chart-1))]" />
+                  <span className="text-xs font-semibold text-foreground">{scenarioName}</span>
+                </span>
+              </div>
             </div>
           ) : (
-            <p className="py-8 text-center text-sm text-gray-600">No mill data available.</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">No mill data available.</p>
           )}
         </ChartContainer>
       </div>

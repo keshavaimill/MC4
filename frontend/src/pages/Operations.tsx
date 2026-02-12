@@ -1,13 +1,54 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { KpiTile } from "@/components/dashboard/KpiTile";
 import { ChartContainer } from "@/components/dashboard/ChartContainer";
 import { useFilters } from "@/context/FilterContext";
 import { fetchMillOperationsKpis, fetchMillSchedule, fetchMillCapacity, type MillOperationsKpis } from "@/lib/api";
-import { cn } from "@/lib/utils";
-import { Check, AlertTriangle, X } from "lucide-react";
+import { cn, downloadCsv } from "@/lib/utils";
+import { Check, AlertTriangle, X, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/PageLoader";
 import { useToast } from "@/components/ui/use-toast";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import { DateRange } from "react-day-picker";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+
+/** Parse period string (YYYY-MM or YYYY-Www) to a Date for comparison */
+function periodToDate(period: string): Date | null {
+  if (!period) return null;
+  const monthMatch = period.match(/^(\d{4})-(\d{2})$/);
+  if (monthMatch) {
+    const [, y, m] = monthMatch;
+    return new Date(Number(y), Number(m) - 1, 1);
+  }
+  const weekMatch = period.match(/^(\d{4})-W(\d{2})$/);
+  if (weekMatch) {
+    const [, y, w] = weekMatch;
+    const jan1 = new Date(Number(y), 0, 1);
+    const firstMonday = jan1.getDay() === 0 ? 1 : jan1.getDay() === 1 ? 0 : 8 - jan1.getDay();
+    const start = new Date(Number(y), 0, 1 + firstMonday + (Number(w) - 1) * 7);
+    return start;
+  }
+  return null;
+}
+
+function isPeriodInRange(period: string, from: Date, to: Date): boolean {
+  const d = periodToDate(period);
+  if (!d) return true;
+  const fromStart = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const toEnd = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  return d >= fromStart && d <= toEnd;
+}
 
 interface ScheduleRow {
   mill_id: string;
@@ -77,6 +118,9 @@ export default function Operations() {
   const [schedule, setSchedule] = useState<ScheduleRow[]>([]);
   const [capacity, setCapacity] = useState<CapacityRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [ledgerDateRange, setLedgerDateRange] = useState<DateRange | undefined>(undefined);
+  const [timelineRowsPerPage, setTimelineRowsPerPage] = useState(14);
+  const [timelinePage, setTimelinePage] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,46 +166,51 @@ export default function Operations() {
     return map;
   })();
 
-  // Build Gantt-like data grouped by mill
-  const ganttData = (() => {
+  // Grid timeline: date (rows) × mill (columns) → primary recipe per cell (most hours that day)
+  const timelineGrid = useMemo(() => {
     const millIds = [...new Set(schedule.map((s) => s.mill_id))].sort();
-    // Map mill IDs to mill names, fallback to mill_id if name not available
-    const mills = millIds.map(id => millNameMap[id] || id);
-    const allDates = [...new Set(schedule.map((s) => s.date))].sort();
-    if (allDates.length === 0) return { mills, millIds, dates: allDates, blocks: [] };
+    const mills = millIds.map((id) => ({ millId: id, millName: millNameMap[id] || id }));
+    const dates = [...new Set(schedule.map((s) => s.date))].sort();
+    if (dates.length === 0 || mills.length === 0) return { dates, mills, getCell: () => null };
 
-    const minDate = new Date(allDates[0]);
-    const maxDate = new Date(allDates[allDates.length - 1]);
-    const totalDays = Math.max(1, Math.ceil((maxDate.getTime() - minDate.getTime()) / 86400000) + 1);
-
-    // Group consecutive recipe runs per mill
-    const blocks: { mill: string; millId: string; recipe: string; startDay: number; endDay: number; color: string }[] = [];
-    for (const millId of millIds) {
-      const millName = millNameMap[millId] || millId;
-      const millSched = schedule.filter((s) => s.mill_id === millId).sort((a, b) => a.date.localeCompare(b.date));
-      let current: { recipe: string; start: number; end: number } | null = null;
-      for (const row of millSched) {
-        const day = Math.ceil((new Date(row.date).getTime() - minDate.getTime()) / 86400000) + 1;
-        const recipe = row.recipe_name || row.recipe_id;
-        if (current && current.recipe === recipe && day <= current.end + 2) {
-          current.end = day;
-        } else {
-          if (current) {
-            blocks.push({ mill: millName, millId, recipe: current.recipe, startDay: current.start, endDay: current.end, color: getRecipeColor(current.recipe) });
-          }
-          current = { recipe, start: day, end: day };
-        }
-      }
-      if (current) {
-        blocks.push({ mill: millName, millId, recipe: current.recipe, startDay: current.start, endDay: current.end, color: getRecipeColor(current.recipe) });
+    // For each (date, mill_id) pick the recipe with max duration_hours
+    const cellMap = new Map<string, { recipe: string; hours: number }>();
+    for (const row of schedule) {
+      const key = `${row.date}|${row.mill_id}`;
+      const hours = row.duration_hours ?? 0;
+      const recipe = row.recipe_name || row.recipe_id;
+      const existing = cellMap.get(key);
+      if (!existing || hours > existing.hours) {
+        cellMap.set(key, { recipe, hours });
       }
     }
 
-    return { mills, millIds, dates: allDates, totalDays, blocks };
-  })();
+    const getCell = (date: string, millId: string) => cellMap.get(`${date}|${millId}`) ?? null;
+    return { dates, mills, getCell };
+  }, [schedule, capacity]);
 
-  // Build ledger from capacity data
-  const ledger = capacity.map((row) => {
+  const timelineTotalRows = timelineGrid.dates.length;
+  const timelineTotalPages = Math.max(1, Math.ceil(timelineTotalRows / timelineRowsPerPage));
+
+  useEffect(() => {
+    setTimelinePage((prev) => Math.min(prev, timelineTotalPages - 1));
+  }, [timelineTotalPages]);
+
+  const timelineVisibleDates = useMemo(() => {
+    const start = timelinePage * timelineRowsPerPage;
+    return timelineGrid.dates.slice(start, start + timelineRowsPerPage);
+  }, [timelineGrid.dates, timelinePage, timelineRowsPerPage]);
+
+  // Filter capacity by ledger date range when set
+  const capacityForLedger = useMemo(() => {
+    if (!ledgerDateRange?.from || !ledgerDateRange?.to) return capacity;
+    return capacity.filter((row) =>
+      isPeriodInRange(row.period || "", ledgerDateRange.from!, ledgerDateRange.to!)
+    );
+  }, [capacity, ledgerDateRange]);
+
+  // Build ledger from (possibly filtered) capacity data
+  const ledger = capacityForLedger.map((row) => {
     const variance = row.available_hours - row.scheduled_hours;
     const status: "ok" | "warning" | "danger" =
       variance <= 0 ? "danger" : variance < row.available_hours * 0.1 ? "warning" : "ok";
@@ -174,6 +223,24 @@ export default function Operations() {
       period: row.period || "",
     };
   });
+
+  // Chart view should be mill-level to avoid repeating X-axis labels for each period row.
+  const ledgerChartData = useMemo(() => {
+    const byMill: Record<string, { mill: string; available: number; planned: number; periods: number }> = {};
+    for (const row of ledger) {
+      if (!byMill[row.mill]) {
+        byMill[row.mill] = { mill: row.mill, available: 0, planned: 0, periods: 0 };
+      }
+      byMill[row.mill].available += row.available;
+      byMill[row.mill].planned += row.planned;
+      byMill[row.mill].periods += 1;
+    }
+    return Object.values(byMill).map((m) => ({
+      ...m,
+      available: Math.round(m.available),
+      planned: Math.round(m.planned),
+    }));
+  }, [ledger]);
 
   // Format date range for display
   const formatDateRange = () => {
@@ -190,6 +257,12 @@ export default function Operations() {
   };
 
   const dateRangeText = formatDateRange();
+
+  // Ledger date range text (when local filter is applied)
+  const ledgerDateRangeText =
+    ledgerDateRange?.from && ledgerDateRange?.to
+      ? `${ledgerDateRange.from.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })} to ${ledgerDateRange.to.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`
+      : null;
 
   const handleLedgerClick = (mill: string, status: "ok" | "warning" | "danger") => {
     if (status === "ok") return;
@@ -215,8 +288,9 @@ export default function Operations() {
   return (
     <DashboardLayout>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Mill Runtime & Sequencing</h1>
-        <p className="text-sm text-gray-600 mt-1">Gantt timeline and capacity ledger across all mills</p>
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Core Planning</p>
+        <h1 className="text-2xl font-semibold text-foreground">Mill Runtime & Sequencing</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Gantt timeline and capacity ledger across all mills</p>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
@@ -225,176 +299,247 @@ export default function Operations() {
         ))}
       </div>
 
-      {/* Gantt Chart */}
-      <ChartContainer title="Mill Schedule Timeline" subtitle={`Recipe runs across ${ganttData.dates.length} days${dateRangeText ? ` (${dateRangeText})` : ""}`} className="mb-6">
-        {ganttData.mills.length > 0 ? (() => {
-          const total = ganttData.totalDays || 14;
-          // Build date labels from the actual date range
-          const dateLabels: { label: string; dayNum: number }[] = [];
-          if (ganttData.dates.length > 0) {
-            const minDate = new Date(ganttData.dates[0]);
-            for (let d = 0; d < total; d++) {
-              const dt = new Date(minDate.getTime() + d * 86400000);
-              dateLabels.push({
-                label: dt.toLocaleDateString("en-US", { day: "numeric", month: "short" }),
-                dayNum: d + 1,
-              });
-            }
-          }
-          // Collect unique recipes for legend
-          const uniqueRecipes = [...new Set(ganttData.blocks.map((b) => b.recipe))];
-
-          return (
-            <div className="space-y-4">
-              {/* Scrollable Gantt area */}
-              <div className="overflow-x-auto pb-2">
-                <div style={{ minWidth: Math.max(700, total * 48) }}>
-                  {/* Date header row */}
-                  <div className="flex items-end mb-1" style={{ paddingLeft: 140 }}>
-                    {dateLabels.map((dl, i) => {
-                      // Show every label if ≤ 14 days, else show every Nth
-                      const step = total <= 14 ? 1 : total <= 30 ? 2 : 4;
-                      return (
-                        <div
-                          key={i}
-                          className="text-center border-l border-gray-300"
-                          style={{ width: `${100 / total}%` }}
-                        >
-                          {i % step === 0 ? (
-                            <span className="text-[10px] font-medium text-gray-600 leading-tight">
-                              {dl.label}
-                            </span>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Mill rows */}
-                  {ganttData.mills.map((mill, idx) => {
-                    const millId = ganttData.millIds[idx];
-                    const millBlocks = ganttData.blocks.filter((b) => b.millId === millId);
-                    return (
-                      <div key={millId} className="flex items-center group">
-                        {/* Mill name */}
-                        <div
-                          className="flex-shrink-0 pr-3 text-sm font-semibold text-gray-900 truncate"
-                          style={{ width: 140 }}
-                          title={mill}
-                        >
-                          {mill}
-                        </div>
-
-                        {/* Timeline bar */}
-                        <div
-                          className="relative flex-1 border-b border-gray-200 group-hover:bg-gray-50 transition-colors"
-                          style={{ height: 44 }}
-                        >
-                          {/* Vertical gridlines */}
-                          {dateLabels.map((_, gi) => (
-                            <div
-                              key={gi}
-                              className="absolute top-0 bottom-0 border-l border-gray-200"
-                              style={{ left: `${(gi / total) * 100}%` }}
-                            />
-                          ))}
-
-                          {/* Recipe blocks */}
-                          {millBlocks.map((block, i) => {
-                            const leftPct = ((block.startDay - 1) / total) * 100;
-                            const widthPct = Math.max(
-                              100 / total * 0.6,
-                              ((block.endDay - block.startDay + 1) / total) * 100
-                            );
-                            const durationDays = block.endDay - block.startDay + 1;
-                            return (
-                              <div
-                                key={i}
-                                className="absolute top-[5px] bottom-[5px] flex items-center rounded-md shadow-sm cursor-pointer transition-all hover:brightness-110 hover:shadow-md hover:scale-y-110 origin-center z-10 overflow-hidden"
-                                style={{
-                                  left: `${leftPct}%`,
-                                  width: `${widthPct}%`,
-                                  backgroundColor: block.color,
-                                }}
-                                title={`${block.recipe}\nDays ${block.startDay}–${block.endDay} (${durationDays} day${durationDays > 1 ? "s" : ""})`}
-                              >
-                                <span className="text-[11px] font-semibold text-white truncate px-2 drop-shadow-sm w-full text-center">
-                                  {durationDays >= 3 ? block.recipe : block.recipe.split(" ")[0]}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Recipe legend */}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2 border-t border-gray-200">
-                <span className="text-xs font-medium text-gray-600 mr-1">Recipes:</span>
-                {uniqueRecipes.map((recipe) => {
-                  const color = getRecipeColor(recipe);
+      {/* Mill Planning — schedule timeline and capacity view */}
+      <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Mill Planning</p>
+      <ChartContainer
+        title="Mill Schedule Timeline"
+        subtitle={`Primary blend per mill per day${dateRangeText ? ` · ${dateRangeText}` : ""}`}
+        action={
+          timelineTotalRows > 0 ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted-foreground whitespace-nowrap">Rows</span>
+              <select
+                value={timelineRowsPerPage}
+                onChange={(e) => {
+                  setTimelineRowsPerPage(Number(e.target.value));
+                  setTimelinePage(0);
+                }}
+                className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+              >
+                <option value={14}>14</option>
+                <option value={30}>30</option>
+                <option value={60}>60</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => setTimelinePage((p) => Math.max(0, p - 1))}
+                disabled={timelinePage === 0}
+                className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground disabled:opacity-40"
+              >
+                Prev
+              </button>
+              <button
+                type="button"
+                onClick={() => setTimelinePage((p) => Math.min(timelineTotalPages - 1, p + 1))}
+                disabled={timelinePage >= timelineTotalPages - 1}
+                className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          ) : null
+        }
+        className="mb-6"
+      >
+        {timelineGrid.dates.length > 0 && timelineGrid.mills.length > 0 ? (
+          <div className="overflow-auto max-h-[560px]">
+            <table className="w-full min-w-[520px] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="sticky top-0 z-10 w-24 text-left py-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground bg-card">
+                    Date
+                  </th>
+                  {timelineGrid.mills.map((m) => (
+                    <th key={m.millId} className="sticky top-0 z-10 py-3 px-2 text-center text-[11px] font-semibold uppercase tracking-wider text-foreground min-w-[120px] bg-card">
+                      {m.millName}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/70">
+                {timelineVisibleDates.map((dateStr) => {
+                  const dateLabel = (() => {
+                    try {
+                      const d = new Date(dateStr);
+                      return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                    } catch {
+                      return dateStr;
+                    }
+                  })();
                   return (
-                    <div key={recipe} className="flex items-center gap-1.5">
-                      <div className="flex items-center">
-                        {/* Left bar */}
-                        <div
-                          className="w-1.5 h-1 rounded-l"
-                          style={{ backgroundColor: color }}
-                        />
-                        {/* Circle with white center */}
-                        <div
-                          className="w-4 h-4 rounded-full flex items-center justify-center"
-                          style={{ backgroundColor: color }}
-                        >
-                          <div className="w-2 h-2 rounded-full bg-white" />
-                        </div>
-                        {/* Right bar */}
-                        <div
-                          className="w-1.5 h-1 rounded-r"
-                          style={{ backgroundColor: color }}
-                        />
-                      </div>
-                      <span className="text-xs text-gray-700">{recipe}</span>
-                    </div>
+                    <tr key={dateStr} className="hover:bg-muted/20 transition-colors">
+                      <td className="w-24 py-2.5 px-3 font-medium text-foreground align-middle whitespace-nowrap">
+                        {dateLabel}
+                      </td>
+                      {timelineGrid.mills.map((m) => {
+                        const cell = timelineGrid.getCell(dateStr, m.millId);
+                        const recipe = cell?.recipe ?? null;
+                        const color = recipe ? getRecipeColor(recipe) : undefined;
+                        return (
+                          <td key={m.millId} className="py-2.5 px-3 align-middle text-center">
+                            <div className="flex justify-center items-center min-h-[32px]">
+                              {recipe ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span
+                                      className="inline-flex items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold text-white shadow-sm cursor-default hover:opacity-90"
+                                      style={{ backgroundColor: color }}
+                                    >
+                                      {recipe}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" sideOffset={6} align="center" className="max-w-xs">
+                                    <p className="font-semibold">{recipe}</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                      {m.millName} · {dateLabel}
+                                      {cell?.hours != null && ` · ${Number(cell.hours).toFixed(1)} hrs`}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : (
+                                <span className="text-muted-foreground/50 text-xs">—</span>
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
                   );
                 })}
-              </div>
+              </tbody>
+            </table>
+            <div className="mt-2 text-[11px] text-muted-foreground">
+              Showing{" "}
+              <span className="font-medium text-foreground">
+                {timelineTotalRows === 0 ? 0 : timelinePage * timelineRowsPerPage + 1}
+              </span>
+              {" "}to{" "}
+              <span className="font-medium text-foreground">
+                {Math.min((timelinePage + 1) * timelineRowsPerPage, timelineTotalRows)}
+              </span>
+              {" "}of{" "}
+              <span className="font-medium text-foreground">{timelineTotalRows}</span>{" "}
+              rows
             </div>
-          );
-        })() : (
-          <p className="py-8 text-center text-sm text-gray-600">No schedule data available.</p>
+            {/* Recipe legend */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-3 mt-1 border-t border-border">
+              <span className="text-xs font-medium text-muted-foreground">Blends:</span>
+              {[...new Set(schedule.map((s) => s.recipe_name || s.recipe_id))].filter(Boolean).sort().map((recipe) => {
+                const color = getRecipeColor(recipe);
+                return (
+                  <span key={recipe} className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-3 w-3 rounded-full shrink-0"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="text-xs text-foreground">{recipe}</span>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <p className="py-8 text-center text-sm text-muted-foreground">No schedule data available.</p>
         )}
       </ChartContainer>
 
       {/* Capacity Ledger */}
-      <ChartContainer 
-        title="Capacity Ledger" 
-        subtitle={dateRangeText ? `Available vs Planned hours per mill (${dateRangeText})` : "Available vs Planned hours per mill"}
+      <ChartContainer
+        title="Capacity Ledger"
+        subtitle={
+          ledgerDateRangeText
+            ? `Filtered: ${ledgerDateRangeText}`
+            : dateRangeText
+              ? `Available vs Planned hours per mill (${dateRangeText})`
+              : "Available vs Planned hours per mill"
+        }
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => downloadCsv(ledger as unknown as Record<string, unknown>[], "operations_capacity_ledger")}
+            disabled={ledger.length === 0}
+          >
+            <Download className="h-3.5 w-3.5" />
+            Download CSV
+          </Button>
+        }
       >
+        <div className="flex flex-wrap items-center gap-2 mb-4 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Date filter (ledger only)</span>
+          <DatePickerWithRange date={ledgerDateRange} setDate={setLedgerDateRange} className="shrink-0" />
+          {ledgerDateRange?.from && (
+            <button
+              type="button"
+              onClick={() => setLedgerDateRange(undefined)}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        <div className="h-[300px] w-full mb-6">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={ledgerChartData}
+              margin={{ top: 20, right: 24, left: 20, bottom: 8 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+              <XAxis dataKey="mill" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={{ stroke: "hsl(var(--border))" }} />
+              <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={{ stroke: "hsl(var(--border))" }} width={40} />
+              <RechartsTooltip
+                cursor={{ fill: "hsl(var(--accent) / 0.3)" }}
+                contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", backgroundColor: "hsl(var(--card))", fontSize: 12, padding: "8px 12px", boxShadow: "0 4px 16px hsl(var(--foreground) / 0.06)" }}
+                formatter={(value: number, name: string) => [`${Math.round(value)} hrs`, name]}
+                labelFormatter={(label, payload) => {
+                  const row = payload?.[0]?.payload as { periods?: number } | undefined;
+                  return row?.periods ? `${label} (${row.periods} periods)` : String(label);
+                }}
+              />
+              <Legend
+                content={({ payload }) => {
+                  if (!payload?.length) return null;
+                  return (
+                    <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-5 pb-1">
+                      <div className="inline-flex flex-wrap items-center justify-center gap-x-6 gap-y-2 rounded-lg border border-border/70 bg-muted/30 px-4 py-2.5 shadow-sm">
+                        {payload.map((entry) => (
+                          <div key={entry.value} className="flex items-center gap-2.5">
+                            <span className="h-3 w-5 shrink-0 rounded-sm" style={{ backgroundColor: entry.color }} />
+                            <span className="text-xs font-semibold text-foreground whitespace-nowrap">{entry.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }}
+              />
+              <Bar dataKey="available" name="Available Hours" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="planned" name="Planned Hours" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
         {ledger.length > 0 ? (
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-100">
+              <tr className="bg-muted/50">
                 {["Mill", "Period", "Available Hours", "Planned Hours", "Variance", "Status"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase text-gray-700">{h}</th>
+                  <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {ledger.map((row, i) => (
-                <tr key={`${row.mill}-${row.period}`} className={cn("border-t border-gray-200", i % 2 === 0 ? "bg-white" : "bg-gray-50")}>
-                  <td className="px-4 py-3 font-semibold text-gray-900">{row.mill}</td>
-                  <td className="px-4 py-3 text-gray-600">{row.period || "N/A"}</td>
-                  <td className="px-4 py-3 font-mono text-gray-900">{row.available}</td>
-                  <td className="px-4 py-3 font-mono text-gray-900">{row.planned}</td>
-                  <td className="px-4 py-3 font-mono text-gray-900">{row.variance}</td>
-                  <td className="px-4 py-3">
+                <tr key={`${row.mill}-${row.period}`} className={cn("border-t border-border", i % 2 === 0 ? "bg-card" : "bg-muted/20")}>
+                  <td className="px-4 py-2.5 font-semibold text-foreground text-xs">{row.mill}</td>
+                  <td className="px-4 py-2.5 text-xs text-muted-foreground">{row.period || "N/A"}</td>
+                  <td className="px-4 py-2.5 font-mono text-xs text-foreground">{row.available}</td>
+                  <td className="px-4 py-2.5 font-mono text-xs text-foreground">{row.planned}</td>
+                  <td className="px-4 py-2.5 font-mono text-xs text-foreground">{row.variance}</td>
+                  <td className="px-4 py-2.5">
                     <button
                       type="button"
-                      className="inline-flex items-center justify-center rounded-md p-1 hover:bg-gray-200"
+                      className="inline-flex items-center justify-center rounded-md p-1 hover:bg-accent"
                       onClick={() => handleLedgerClick(row.mill, row.status)}
                     >
                       {row.status === "ok" && <Check className="h-4 w-4 text-emerald-600" />}
@@ -407,7 +552,7 @@ export default function Operations() {
             </tbody>
           </table>
         ) : (
-          <p className="py-8 text-center text-sm text-gray-600">No capacity data available.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">No capacity data available.</p>
         )}
       </ChartContainer>
     </DashboardLayout>

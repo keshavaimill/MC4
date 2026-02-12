@@ -20,26 +20,37 @@ export function KpiTile({ label, value, unit, delta, driver, onClick }: KpiTileP
       <button
         onClick={onClick || (() => setDrillOpen(true))}
         className={cn(
-          "section-shell hover-lift group relative flex flex-col items-start gap-2 rounded-2xl sm:rounded-[1.25rem] border border-border/60 bg-white/90 p-4 sm:p-5 lg:p-6 text-left cursor-pointer w-full min-w-0 overflow-hidden box-border"
+          "group relative flex flex-col items-start gap-1.5 rounded-xl border border-border bg-card p-4 sm:p-5 text-left cursor-pointer w-full min-w-0 overflow-hidden box-border shadow-card hover:shadow-elevated transition-shadow duration-200"
         )}
       >
-        <div className="flex items-center gap-2 flex-wrap mb-1">
-          <span className="rounded-full border border-border/70 px-2 py-0.5 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">KPI</span>
-          {delta !== undefined && (
-            <span className={cn(
-              "rounded-full px-2 py-0.5 text-[10px] sm:text-xs font-semibold whitespace-nowrap",
-              isPositive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-            )}>
-              {isPositive ? "↑" : "↓"} {Math.abs(delta).toFixed(2)}%
-            </span>
-          )}
+        {/* Label row */}
+        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground truncate w-full block">
+          {label}
+        </span>
+
+        {/* Value + unit */}
+        <div className="flex items-baseline gap-1.5 min-w-0 w-full">
+          <span className={cn("font-semibold tracking-tight text-foreground truncate", getKpiFontSize(value))}>
+            {value}
+          </span>
+          {unit && <span className="text-xs text-muted-foreground flex-shrink-0 font-medium">{unit}</span>}
         </div>
-        <span className="text-xs sm:text-sm uppercase tracking-[0.2em] text-muted-foreground/90 truncate w-full block">{label}</span>
-        <div className="flex items-baseline gap-2 min-w-0 w-full mt-2">
-          <span className={cn("font-semibold tracking-tight text-foreground truncate", getKpiFontSize(value))}>{value}</span>
-          {unit && <span className="text-sm lg:text-base text-muted-foreground flex-shrink-0 font-medium">{unit}</span>}
-        </div>
-        {driver && <span className="text-xs text-muted-foreground truncate w-full mt-2 leading-snug">{driver}</span>}
+
+        {/* Delta badge */}
+        {delta !== undefined && (
+          <span
+            className={cn(
+              "inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
+              isPositive
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-red-50 text-red-600",
+            )}
+          >
+            {isPositive ? "\u2191" : "\u2193"} {Math.abs(delta).toFixed(1)}%
+          </span>
+        )}
+
+        {driver && <span className="text-[11px] text-muted-foreground truncate w-full leading-snug mt-0.5">{driver}</span>}
       </button>
       <KpiDrilldownModal
         open={drillOpen}

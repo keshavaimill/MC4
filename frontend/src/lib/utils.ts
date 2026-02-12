@@ -52,3 +52,27 @@ export function getKpiFontSize(value: string): string {
     return 'text-2xl';
   }
 }
+
+/** Build CSV string from array of objects and trigger download */
+export function downloadCsv(rows: Record<string, unknown>[], filename: string): void {
+  if (rows.length === 0) return;
+  const keys = Object.keys(rows[0]);
+  const header = keys.map((k) => `"${String(k).replace(/"/g, '""')}"`).join(",");
+  const body = rows
+    .map((row) =>
+      keys.map((k) => {
+        const v = row[k];
+        const s = v == null ? "" : String(v);
+        return `"${s.replace(/"/g, '""')}"`;
+      }).join(",")
+    )
+    .join("\n");
+  const csv = header + "\n" + body;
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename.endsWith(".csv") ? filename : `${filename}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}

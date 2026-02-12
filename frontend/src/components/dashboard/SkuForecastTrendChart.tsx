@@ -27,6 +27,7 @@ interface DailyData {
 function globalToLocal(gf: string): PeriodType {
   switch (gf) {
     case "7days":   return "week";
+    case "15days":  return "month"; // 15-day range uses month-style display
     case "30days":  return "month";
     case "quarter": return "quarter";
     case "year":    return "year";
@@ -34,12 +35,15 @@ function globalToLocal(gf: string): PeriodType {
   }
 }
 
+const MILL_OPTIONS = ["M1", "M2", "M3"];
+
 export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps) {
   const { queryParams, periodFilter } = useFilters();
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSku, setSelectedSku] = useState<string>("all");
   const [selectedFlourType, setSelectedFlourType] = useState<string>("all");
+  const [selectedMill, setSelectedMill] = useState<string>("all");
   const [periodType, setPeriodType] = useState<PeriodType>(() => globalToLocal(periodFilter));
 
   // Sync local period with global filter when it changes
@@ -159,6 +163,7 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
           to_date: dateRange.historicalEnd,
           horizon: "day", // Fetch daily data
           sku_id: selectedSku !== "all" ? selectedSku : undefined,
+          mill_id: selectedMill !== "all" ? selectedMill : undefined,
         };
         
         // Load forecasted data (daily)
@@ -168,6 +173,7 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
           to_date: dateRange.forecastEnd,
           horizon: "day", // Fetch daily data
           sku_id: selectedSku !== "all" ? selectedSku : undefined,
+          mill_id: selectedMill !== "all" ? selectedMill : undefined,
         };
         
         // Fetch both historical and forecasted data
@@ -215,7 +221,7 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
     
     loadData();
     return () => { cancelled = true; };
-  }, [periodType, selectedSku, selectedFlourType, queryParams.scenario, queryParams.mill_id]);
+  }, [periodType, selectedSku, selectedFlourType, selectedMill, queryParams.scenario]);
 
   // Get unique SKUs and flour types for filters
   const [allSkus, setAllSkus] = useState<string[]>([]);
@@ -377,6 +383,20 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
               ))}
             </SelectContent>
           </Select>
+
+          <Select value={selectedMill} onValueChange={setSelectedMill}>
+            <SelectTrigger className="h-7 w-28 text-xs">
+              <SelectValue placeholder="Mill" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Mills</SelectItem>
+              {MILL_OPTIONS.map((mill) => (
+                <SelectItem key={mill} value={mill}>
+                  {mill}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Chart */}
@@ -449,19 +469,41 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
                     return label;
                   }}
                 />
-                <Legend 
-                  wrapperStyle={{ paddingTop: 5, paddingBottom: 0 }}
-                  iconType="line"
-                  iconSize={10}
-                  formatter={(value) => {
+                <Legend
+                  content={({ payload }) => {
+                    if (!payload?.length) return null;
                     const labels: Record<string, string> = {
                       historical: "Historical",
                       forecasted: "Forecasted",
                     };
                     return (
-                      <span style={{ fontSize: 10, color: "hsl(var(--foreground))" }}>
-                        {labels[value] || value}
-                      </span>
+                      <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 pt-5 pb-1">
+                        <div className="inline-flex items-center gap-4 rounded-lg border border-border/70 bg-muted/30 px-4 py-2 shadow-sm">
+                          {payload.map((entry) => (
+                            <div
+                              key={entry.value}
+                              className="flex items-center gap-2.5"
+                            >
+                              <svg width="26" height="12" viewBox="0 0 26 12" fill="none" className="shrink-0" aria-hidden>
+                                <line
+                                  x1="0"
+                                  y1="6"
+                                  x2="26"
+                                  y2="6"
+                                  stroke={entry.color}
+                                  strokeWidth={2}
+                                  strokeLinecap="round"
+                                  strokeDasharray={entry.value === "forecasted" ? "5 4" : undefined}
+                                />
+                                <circle cx="13" cy="6" r="3" fill="white" stroke={entry.color} strokeWidth={2} />
+                              </svg>
+                              <span className="text-xs font-semibold text-foreground">
+                                {labels[entry.value as string] || entry.value}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     );
                   }}
                 />

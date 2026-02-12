@@ -169,7 +169,7 @@ export default function Chatbot() {
       {/* Chat Window */}
       {isOpen && (
         <div
-          className={`fixed bottom-6 right-6 bg-white rounded-xl shadow-2xl border-2 border-gray-200 flex flex-col z-50 transition-all duration-300 ${
+          className={`fixed bottom-6 right-6 bg-card rounded-xl shadow-elevated border border-border flex flex-col z-50 transition-all duration-300 ${
             isMinimized ? 'w-80 h-16' : 'w-96 h-[600px]'
           }`}
         >
@@ -210,8 +210,8 @@ export default function Chatbot() {
 
           {/* Minimized view - show last message preview */}
           {isMinimized && (
-            <div className="flex-1 px-4 flex items-center bg-gray-50">
-              <p className="text-sm text-gray-700 truncate">
+            <div className="flex-1 px-4 flex items-center bg-muted/30">
+              <p className="text-sm text-muted-foreground truncate">
                 {messages[messages.length - 1]?.content.substring(0, 50)}
                 {(messages[messages.length - 1]?.content.length ?? 0) > 50 ? '...' : ''}
               </p>
@@ -225,7 +225,7 @@ export default function Chatbot() {
                 {/* Example Questions - Show only when there's just the welcome message */}
                 {messages.length === 1 && (
                   <div className="space-y-3 mb-4">
-                    <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                       Try asking:
                     </p>
                     <div className="grid grid-cols-1 gap-2">
@@ -362,7 +362,7 @@ export default function Chatbot() {
                                   </tbody>
                                 </table>
                                 {message.data.length > 10 && (
-                                  <p className="text-xs mt-2 text-gray-600">
+                                  <p className="text-xs mt-2 text-muted-foreground">
                                     Showing first 10 of {message.data.length} rows
                                   </p>
                                 )}
@@ -397,10 +397,10 @@ export default function Chatbot() {
                 ))}
                 {loading && (
                   <div className="flex justify-start">
-                    <div className="bg-gray-100 border-2 border-gray-200 rounded-lg p-3">
+                    <div className="bg-muted/40 border border-border rounded-lg p-3">
                       <div className="flex items-center space-x-2">
                         <UserCircle className="w-4 h-4 animate-pulse text-primary" />
-                        <span className="text-sm text-gray-700">Thinking...</span>
+                        <span className="text-sm text-muted-foreground">Thinking...</span>
                       </div>
                     </div>
                   </div>
@@ -409,7 +409,7 @@ export default function Chatbot() {
               </div>
 
               {/* Input */}
-              <div className="h-16 border-t-2 border-gray-200 p-4 flex-shrink-0 bg-gray-50">
+              <div className="h-16 border-t border-border p-4 flex-shrink-0 bg-muted/30">
                 <div className="flex items-center space-x-2">
                   <input
                     type="text"

@@ -83,8 +83,9 @@ export default function Alerts() {
   return (
     <DashboardLayout>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Alerts & Decisions</h1>
-        <p className="text-sm text-gray-600 mt-1">Priority alerts from capacity analysis</p>
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Analysis</p>
+        <h1 className="text-2xl font-semibold text-foreground">Alerts & Decisions</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Priority alerts from capacity analysis</p>
       </div>
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
@@ -94,10 +95,10 @@ export default function Alerts() {
       </div>
 
       {alerts.length === 0 ? (
-        <div className="rounded-xl border-2 border-gray-200 bg-white p-12 text-center shadow-lg">
+        <div className="rounded-xl border border-border bg-card p-12 text-center shadow-card">
           <Info className="mx-auto mb-3 h-8 w-8 text-emerald-500" />
-          <h3 className="text-lg font-bold text-gray-900">No Active Alerts</h3>
-          <p className="mt-1 text-sm text-gray-600">All mills are operating within capacity for the selected period.</p>
+          <h3 className="text-lg font-bold text-foreground">No Active Alerts</h3>
+          <p className="mt-1 text-sm text-muted-foreground">All mills are operating within capacity for the selected period.</p>
         </div>
       ) : (
         <>
@@ -106,7 +107,7 @@ export default function Alerts() {
               <div
                 key={i}
                 className={cn(
-                  "rounded-xl border-2 border-gray-200 bg-white p-5 shadow-md transition-shadow hover:shadow-lg",
+                  "rounded-xl border border-border bg-card p-5 shadow-card transition-shadow hover:shadow-card",
                   alert.severity === "high" || alert.severity === "critical"
                     ? "border-l-4 border-l-red-500"
                     : alert.severity === "warning" || alert.severity === "medium"
@@ -117,24 +118,24 @@ export default function Alerts() {
                 <div className="mb-3 flex items-start justify-between">
                   <div className="flex items-center gap-2">
                     <SeverityIcon severity={alert.severity} />
-                    <h3 className="text-sm font-semibold text-gray-900">{alert.title}</h3>
+                    <h3 className="text-sm font-semibold text-foreground">{alert.title}</h3>
                   </div>
                   <SeverityBadge severity={alert.severity} />
                 </div>
-                <p className="mb-3 text-xs text-gray-700">{alert.message}</p>
+                <p className="mb-3 text-xs text-muted-foreground">{alert.message}</p>
                 <div className="mb-3 flex gap-4 text-xs">
-                  <span className="text-gray-600">
-                    Mill: <strong className="font-mono text-gray-900">{alert.mill_id}</strong>
+                  <span className="text-muted-foreground">
+                    Mill: <strong className="font-mono text-foreground">{alert.mill_id}</strong>
                   </span>
-                  <span className="text-gray-600">
-                    Period: <strong className="font-mono text-gray-900">{alert.period}</strong>
+                  <span className="text-muted-foreground">
+                    Period: <strong className="font-mono text-foreground">{alert.period}</strong>
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <button className="flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-primary hover:bg-accent/80 transition-colors">
                     Investigate <ArrowRight className="h-3 w-3" />
                   </button>
-                  <span className="text-[10px] text-gray-500 capitalize">{alert.type?.replace("_", " ")}</span>
+                  <span className="text-[10px] text-muted-foreground capitalize">{alert.type?.replace("_", " ")}</span>
                 </div>
               </div>
             ))}
@@ -145,21 +146,21 @@ export default function Alerts() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-gray-100">
+                  <tr className="bg-muted/50">
                     {["Alert", "Type", "Severity", "Mill", "Period", "Message"].map((h) => (
-                      <th key={h} className="px-3 py-2.5 text-left text-xs font-bold uppercase text-gray-700">{h}</th>
+                      <th key={h} className="px-3 py-2.5 text-left text-xs font-bold uppercase text-muted-foreground">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {alerts.map((alert, i) => (
-                    <tr key={i} className={cn("border-t border-gray-200", i % 2 === 0 ? "bg-white" : "bg-gray-50")}>
-                      <td className="px-3 py-2.5 text-xs font-medium text-gray-900">{alert.title}</td>
-                      <td className="px-3 py-2.5 text-xs text-gray-600 capitalize">{alert.type?.replace("_", " ")}</td>
+                    <tr key={i} className={cn("border-t border-border", i % 2 === 0 ? "bg-card" : "bg-muted/20")}>
+                      <td className="px-3 py-2.5 text-xs font-medium text-foreground">{alert.title}</td>
+                      <td className="px-3 py-2.5 text-xs text-muted-foreground capitalize">{alert.type?.replace("_", " ")}</td>
                       <td className="px-3 py-2.5"><SeverityBadge severity={alert.severity} /></td>
-                      <td className="px-3 py-2.5 font-mono text-xs text-gray-800">{alert.mill_id}</td>
-                      <td className="px-3 py-2.5 font-mono text-xs text-gray-800">{alert.period}</td>
-                      <td className="px-3 py-2.5 text-xs text-gray-600 max-w-[300px] truncate">{alert.message}</td>
+                      <td className="px-3 py-2.5 font-mono text-xs text-foreground">{alert.mill_id}</td>
+                      <td className="px-3 py-2.5 font-mono text-xs text-foreground">{alert.period}</td>
+                      <td className="px-3 py-2.5 text-xs text-muted-foreground max-w-[300px] truncate">{alert.message}</td>
                     </tr>
                   ))}
                 </tbody>

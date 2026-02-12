@@ -116,8 +116,9 @@ export default function WastePage() {
   return (
     <DashboardLayout>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Waste & Vision 2030</h1>
-        <p className="text-sm text-gray-600 mt-1">Waste tracking by recipe and mill, sustainability targets</p>
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Sustainability</p>
+        <h1 className="text-2xl font-semibold text-foreground">Waste & Vision 2030</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Waste tracking by recipe and mill, sustainability targets</p>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
@@ -134,16 +135,16 @@ export default function WastePage() {
               <table className="w-full text-sm">
               <thead>
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-bold text-gray-700">Mill</th>
+                  <th className="px-3 py-2 text-left text-xs font-bold text-muted-foreground">Mill</th>
                   {heatmapData.recipes.map((r) => (
-                    <th key={r} className="px-3 py-2 text-center text-xs font-bold text-gray-700">{r}</th>
+                    <th key={r} className="px-3 py-2 text-center text-xs font-bold text-muted-foreground">{r}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {heatmapData.mills.map((mill) => (
                   <tr key={mill}>
-                    <td className="px-3 py-2 font-semibold text-gray-900">{mill}</td>
+                    <td className="px-3 py-2 font-semibold text-foreground">{mill}</td>
                     {heatmapData.recipes.map((recipe) => {
                       const val = heatmapData.matrix[mill]?.[recipe] || 0;
                       const maxWaste = Math.max(6, ...Object.values(heatmapData.matrix).flatMap(m => Object.values(m)));
@@ -155,7 +156,7 @@ export default function WastePage() {
                             className="mx-auto flex h-10 w-16 items-center justify-center rounded-md font-mono text-xs font-bold"
                             style={{
                               backgroundColor: `rgba(220, 38, 38, ${opacity})`,
-                              color: intensity > 0.4 ? "white" : "#111827",
+                              color: intensity > 0.4 ? "white" : "hsl(var(--foreground))",
                             }}
                           >
                             {val.toFixed(1)}%
@@ -169,7 +170,7 @@ export default function WastePage() {
             </table>
             </div>
           ) : (
-            <p className="py-8 text-center text-sm text-gray-600">No waste data available.</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">No waste data available.</p>
           )}
         </ChartContainer>
 
@@ -179,35 +180,64 @@ export default function WastePage() {
             <div className="w-full" style={{ height: '400px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={trendData} margin={{ top: 10, right: 20, bottom: 10, left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="period" tick={{ fontSize: 11, fill: '#374151' }} />
-                  <YAxis tick={{ fontSize: 11, fill: '#374151' }} domain={["auto", "auto"]} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      borderRadius: 8, 
-                      border: "2px solid #e5e7eb",
-                      backgroundColor: '#ffffff'
-                    }} 
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="period" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                  <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} domain={["auto", "auto"]} />
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: 8,
+                      border: "1px solid hsl(var(--border))",
+                      backgroundColor: "hsl(var(--card))",
+                      fontSize: 12,
+                      padding: "8px 12px",
+                      boxShadow: "0 4px 16px hsl(var(--foreground) / 0.06)",
+                    }}
                   />
-                  <Legend 
-                    wrapperStyle={{ paddingTop: '10px' }}
-                    iconSize={10}
-                    iconType="rect"
-                    formatter={(value) => <span style={{ fontSize: '11px', color: '#111827' }}>{value}</span>}
+                  <Legend
+                    content={({ payload }) => {
+                      if (!payload?.length) return null;
+                      const isDashed = (v: string) => v === "Target";
+                      return (
+                        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-5 pb-1">
+                          <div className="inline-flex flex-wrap items-center justify-center gap-x-6 gap-y-2 rounded-lg border border-border/70 bg-muted/30 px-4 py-2.5 shadow-sm">
+                            {payload.map((entry) => (
+                              <div key={entry.value} className="flex items-center gap-2.5">
+                                <svg width="26" height="12" viewBox="0 0 26 12" fill="none" className="shrink-0" aria-hidden>
+                                  <line
+                                    x1="0"
+                                    y1="6"
+                                    x2="26"
+                                    y2="6"
+                                    stroke={entry.color}
+                                    strokeWidth={2}
+                                    strokeLinecap="round"
+                                    strokeDasharray={isDashed(entry.value as string) ? "6 4" : undefined}
+                                  />
+                                  <circle cx="13" cy="6" r="3" fill="white" stroke={entry.color} strokeWidth={2} />
+                                </svg>
+                                <span className="text-xs font-semibold text-foreground whitespace-nowrap">
+                                  {entry.value}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }}
                   />
-                  <Area 
-                    dataKey="actual" 
-                    name="Actual" 
-                    stroke="#f97316" 
-                    fill="rgba(249, 115, 22, 0.15)" 
-                    strokeWidth={2} 
+                  <Area
+                    dataKey="actual"
+                    name="Actual"
+                    stroke="hsl(var(--chart-1))"
+                    fill="hsl(var(--chart-1) / 0.12)"
+                    strokeWidth={2}
                   />
-                  <Line 
-                    dataKey="target" 
-                    name="Target" 
-                    stroke="#059669" 
-                    strokeDasharray="6 3" 
-                    strokeWidth={2} 
+                  <Line
+                    dataKey="target"
+                    name="Target"
+                    stroke="hsl(var(--chart-2))"
+                    strokeDasharray="6 3"
+                    strokeWidth={2}
                     dot={false}
                     type="monotone"
                   />
@@ -215,7 +245,7 @@ export default function WastePage() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="py-8 text-center text-sm text-gray-600">No trend data available.</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">No trend data available.</p>
           )}
         </ChartContainer>
       </div>

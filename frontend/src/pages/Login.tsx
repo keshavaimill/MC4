@@ -66,82 +66,82 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-white to-gray-50 px-4 py-10 sm:py-16 flex flex-col items-center justify-center">
+    <div className="min-h-screen w-full bg-background px-4 py-10 sm:py-16 flex flex-col items-center justify-center">
       <div className="w-full max-w-md mx-auto">
-        <div className="mb-4 sm:mb-6 flex justify-center">
-          <div className="h-14 sm:h-16 w-14 sm:w-16 rounded-2xl border border-border/70 bg-white/80 flex items-center justify-center shadow-card overflow-hidden">
-            <img src="/MC4_Logo.webp" alt="MC4 logo" className="h-10 sm:h-12 w-10 sm:w-12 object-contain" loading="lazy" />
+        {/* Logo */}
+        <div className="mb-5 flex justify-center">
+          <div className="h-14 w-14 rounded-xl border border-border bg-card flex items-center justify-center shadow-card overflow-hidden">
+            <img src="/MC4_Logo.webp" alt="MC4 logo" className="h-10 w-10 object-contain" loading="lazy" />
           </div>
-        </div>
-        <div className="mb-6 sm:mb-8 text-center space-y-2">
-          <p className="text-[10px] sm:text-xs uppercase tracking-[0.4em] text-muted-foreground">MC4</p>
-          <h1 className="mt-2 text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">Operations Command Center</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Sign in to continue</p>
         </div>
 
-        <div className="section-shell border-border/70 bg-white/90 p-6 sm:p-8">
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-foreground">Login</h2>
-          </div>
+        {/* Header */}
+        <div className="mb-7 text-center space-y-1.5">
+          <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">MC4</p>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">Operations Command Center</h1>
+          <p className="text-sm text-muted-foreground">Sign in to continue</p>
+        </div>
+
+        {/* Card */}
+        <div className="rounded-xl border border-border bg-card p-6 sm:p-8 shadow-card">
+          <h2 className="text-lg font-semibold text-foreground mb-5">Login</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
+              <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 Work email
               </label>
-            <Input
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@mc4.sa"
-              className="text-sm"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
-              Password
-            </label>
-            <Input
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="text-sm"
-            />
-          </div>
+              <Input
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@mc4.sa"
+                className="text-sm h-10"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Password
+              </label>
+              <Input
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+                className="text-sm h-10"
+              />
+            </div>
             <Button
               type="submit"
-              className="w-full rounded-xl bg-foreground text-primary-foreground hover:opacity-90 font-semibold"
+              className="w-full h-10 rounded-lg bg-primary text-primary-foreground hover:opacity-90 font-semibold text-sm"
               disabled={loading || submitting}
             >
-              {loading || submitting ? "Signing in…" : "Login"}
+              {loading || submitting ? "Signing in\u2026" : "Sign in"}
             </Button>
           </form>
 
-          <div className="mt-6 pt-4 border-t border-border/60">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-3">Role-based access</p>
-            <div className="grid gap-2">
+          {/* Role shortcuts */}
+          <div className="mt-6 pt-5 border-t border-border">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3 font-medium">Quick access</p>
+            <div className="grid gap-1.5">
               {roles.map((role) => (
                 <button
                   key={role.id}
                   type="button"
                   onClick={() => {
                     const creds = roleCredentials[role.id];
-                    if (creds) {
-                      setEmail(creds.email);
-                      setPassword(creds.password);
-                    }
+                    if (creds) { setEmail(creds.email); setPassword(creds.password); }
                   }}
-                  className="flex items-center gap-3 rounded-xl border border-border/70 bg-white/70 px-3 py-2.5 text-left transition-all hover:bg-muted/50 hover:border-primary/30"
+                  className="flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-2 text-left transition-colors hover:bg-accent/50 hover:border-primary/20"
                 >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
-                    <role.icon className="h-4 w-4" />
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent text-foreground">
+                    <role.icon className="h-3.5 w-3.5" />
                   </div>
                   <div className="min-w-0">
                     <div className="text-xs font-semibold text-foreground">{role.title}</div>
-                    <div className="text-[11px] text-muted-foreground truncate">{role.description}</div>
+                    <div className="text-[10px] text-muted-foreground truncate">{role.description}</div>
                   </div>
                 </button>
               ))}

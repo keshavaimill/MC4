@@ -5,15 +5,27 @@ interface ChartContainerProps {
   subtitle?: string;
   children: React.ReactNode;
   className?: string;
+  action?: React.ReactNode;
 }
 
-export function ChartContainer({ title, subtitle, children, className }: ChartContainerProps) {
+export function ChartContainer({ title, subtitle, children, className, action }: ChartContainerProps) {
   const hasOverflowVisible = className?.includes("overflow-visible");
   return (
-    <div className={cn("section-shell hover-lift rounded-2xl sm:rounded-[1.25rem] border border-border/60 bg-white/90 p-4 sm:p-5 lg:p-6 w-full max-w-full min-w-0 box-border", hasOverflowVisible ? "overflow-visible" : "overflow-hidden", className)}>
-      <div className="mb-4 lg:mb-5 pb-3 border-b border-border/60">
-        <h3 className="text-lg sm:text-xl font-semibold leading-tight text-foreground">{title}</h3>
-        {subtitle && <p className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-muted-foreground mt-1">{subtitle}</p>}
+    <div
+      className={cn(
+        "rounded-xl border border-border bg-card p-5 sm:p-6 shadow-card w-full max-w-full min-w-0 box-border",
+        hasOverflowVisible ? "overflow-visible" : "overflow-hidden",
+        className,
+      )}
+    >
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold tracking-tight text-foreground sm:text-base">{title}</h3>
+          {subtitle && (
+            <p className="mt-0.5 text-[11px] text-muted-foreground">{subtitle}</p>
+          )}
+        </div>
+        {action && <div className="shrink-0">{action}</div>}
       </div>
       <div className={cn("w-full max-w-full min-w-0 box-border", hasOverflowVisible ? "overflow-visible" : "overflow-hidden")}>
         {children}

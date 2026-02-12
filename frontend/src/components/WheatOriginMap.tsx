@@ -1,43 +1,49 @@
 import { useEffect, useRef } from "react";
+import L from "leaflet";
 import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
-// Approximate lat/lng for known wheat-exporting countries
+// Geographic centers / capitals for wheat-exporting countries (lat, lng) — clear placement on map
 const COUNTRY_COORDS: Record<string, [number, number]> = {
-  Canada: [56, -106],
-  Australia: [-25, 134],
-  USA: [38, -97],
-  Argentina: [-34, -64],
-  France: [46, 2],
-  Ukraine: [49, 32],
-  Russia: [56, 38],
-  India: [21, 78],
-  Germany: [51, 10],
-  Kazakhstan: [48, 67],
+  Canada: [56.13, -106.35],       // geographic center
+  Australia: [-25.27, 133.77],    // geographic center
+  USA: [39.83, -98.58],           // geographic center (lower 48)
+  Argentina: [-34.6, -58.45],     // Buenos Aires
+  France: [46.23, 2.21],          // central France
+  Ukraine: [50.45, 30.52],        // Kyiv
+  Russia: [55.75, 37.62],         // Moscow
+  India: [20.59, 78.96],          // central India
+  Germany: [51.17, 10.45],        // central Germany
+  Kazakhstan: [48.02, 66.92],     // central Kazakhstan
 };
 
-// Vibrant color palette for each country (unique per marker)
-const COUNTRY_COLORS: Record<string, { fill: string; border: string }> = {
-  Canada:     { fill: "#e63946", border: "#b7202d" },   // vivid red
-  Australia:  { fill: "#f77f00", border: "#c56600" },   // bright orange
-  USA:        { fill: "#3a86ff", border: "#1d6de0" },   // electric blue
-  Argentina:  { fill: "#06d6a0", border: "#04a87d" },   // teal-green
-  France:     { fill: "#8338ec", border: "#6a2bc7" },   // purple
-  Ukraine:    { fill: "#ffbe0b", border: "#d6a000" },   // golden yellow
-  Russia:     { fill: "#fb5607", border: "#c94505" },   // deep orange
-  India:      { fill: "#ff006e", border: "#cc0058" },   // hot pink
-  Germany:    { fill: "#2ec4b6", border: "#239e92" },   // cyan-teal
-  Kazakhstan: { fill: "#80b918", border: "#669413" },   // lime green
-};
-
-// Fallback colors for unknown countries — cycle through
-const FALLBACK_COLORS = [
-  { fill: "#7209b7", border: "#5a0790" },
-  { fill: "#4361ee", border: "#334fbe" },
-  { fill: "#f72585", border: "#c41d6a" },
-  { fill: "#4cc9f0", border: "#38a1c0" },
-  { fill: "#b5179e", border: "#8e127e" },
+// Theme-aligned palette (chart CSS vars + distinct hex for map contrast)
+const CHART_COLORS = [
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+  "hsl(var(--chart-6))",
+  "hsl(var(--chart-7))",
+  "hsl(30 52% 42%)",   // darker primary
+  "hsl(152 69% 25%)",  // darker emerald
+  "hsl(210 75% 45%)",  // blue
 ];
+// Darker border = same hue, lower lightness
+function toBorder(fill: string): string {
+  if (fill.startsWith("hsl(")) {
+    const match = fill.match(/hsl\(([^)]+)\)/);
+    if (match) {
+      const parts = match[1].split(/\s/);
+      const h = parts[0];
+      const s = parts[1]?.replace("%", "") ?? "50";
+      const l = Math.max(0, Math.min(100, Number(parts[2]?.replace("%", "") ?? 50) - 12));
+      return `hsl(${h} ${s}% ${l}%)`;
+    }
+  }
+  return "hsl(var(--foreground) / 0.4)";
+}
 
 export interface WheatOrigin {
   country: string;
@@ -64,13 +70,18 @@ function FitBounds({ origins }: { origins: WheatOrigin[] }) {
 
   useEffect(() => {
     if (fitted.current || origins.length === 0) return;
-    const bounds = origins.map((o) => {
-      const coords = COUNTRY_COORDS[o.country];
-      return coords ?? [o.lat ?? 0, o.lng ?? 0];
-    }) as [number, number][];
+    const points = origins
+      .map((o) => {
+        const coords = COUNTRY_COORDS[o.country];
+        const lat = coords?.[0] ?? o.lat ?? 0;
+        const lng = coords?.[1] ?? o.lng ?? 0;
+        return [lat, lng] as [number, number];
+      })
+      .filter(([lat, lng]) => lat !== 0 || lng !== 0);
 
-    if (bounds.length > 0) {
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 4 });
+    if (points.length > 0) {
+      const bounds = L.latLngBounds(points);
+      map.fitBounds(bounds, { padding: [24, 24], maxZoom: 5 });
       fitted.current = true;
     }
   }, [map, origins]);
@@ -78,8 +89,9 @@ function FitBounds({ origins }: { origins: WheatOrigin[] }) {
   return null;
 }
 
-function getColor(country: string, idx: number) {
-  return COUNTRY_COLORS[country] ?? FALLBACK_COLORS[idx % FALLBACK_COLORS.length];
+function getColorForIndex(idx: number): { fill: string; border: string } {
+  const fill = CHART_COLORS[idx % CHART_COLORS.length];
+  return { fill, border: toBorder(fill) };
 }
 
 export default function WheatOriginMap({
@@ -112,9 +124,10 @@ export default function WheatOriginMap({
         {origins.map((origin, idx) => {
           const coords = COUNTRY_COORDS[origin.country];
           const position: [number, number] = coords ?? [origin.lat ?? 0, origin.lng ?? 0];
+          const invalid = position[0] === 0 && position[1] === 0;
           const volPct = totalVolume > 0 ? (origin.volume / totalVolume) * 100 : 10;
-          const radius = Math.max(10, 8 + volPct * 0.7);
-          const { fill, border } = getColor(origin.country, idx);
+          const radius = Math.max(12, Math.min(28, 10 + volPct * 0.35));
+          const { fill, border } = getColorForIndex(idx);
 
           // Cost label
           const costLevel =
@@ -123,6 +136,8 @@ export default function WheatOriginMap({
               : origin.avgCost > avgCostAll * 0.95
                 ? "Mid"
                 : "Low";
+
+          if (invalid) return null;
 
           return (
             <CircleMarker
@@ -176,20 +191,20 @@ export default function WheatOriginMap({
       </MapContainer>
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-3 mt-1.5 text-[11px] text-muted-foreground px-1">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3 pt-2 border-t border-border/60 text-[11px] text-muted-foreground">
         {origins.map((o, idx) => {
-          const { fill } = getColor(o.country, idx);
+          const { fill, border } = getColorForIndex(idx);
           return (
-            <span key={o.country} className="flex items-center gap-1">
+            <span key={o.country} className="flex items-center gap-1.5">
               <span
-                className="inline-block h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: fill }}
+                className="inline-block h-3 w-3 rounded-full border-2 shrink-0"
+                style={{ backgroundColor: fill, borderColor: border }}
               />
-              {o.country}
+              <span className="font-medium text-foreground">{o.country}</span>
             </span>
           );
         })}
-        <span className="ml-auto italic opacity-70">Bubble size = volume share</span>
+        <span className="ml-auto italic text-muted-foreground">Size = volume share</span>
       </div>
     </div>
   );

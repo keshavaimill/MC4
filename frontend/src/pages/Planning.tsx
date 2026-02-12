@@ -5,10 +5,21 @@ import { ChartContainer } from "@/components/dashboard/ChartContainer";
 import { useFilters } from "@/context/FilterContext";
 import { fetchRecipePlanningKpis, fetchRecipeEligibility, fetchRecipePlanning, type RecipePlanningKpis } from "@/lib/api";
 import { Slider } from "@/components/ui/slider";
-import { cn } from "@/lib/utils";
-import { Check, X, AlertTriangle, RotateCcw, Loader2 } from "lucide-react";
+import { cn, downloadCsv } from "@/lib/utils";
+import { Check, X, AlertTriangle, RotateCcw, Loader2, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/PageLoader";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 interface EligibilityRow {
   recipe_id: string;
@@ -183,8 +194,9 @@ export default function Planning() {
   return (
     <DashboardLayout>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Production Planning</h1>
-        <p className="text-sm text-gray-600 mt-1">Adjust recipe time allocation and see real-time impact</p>
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Core Planning</p>
+        <h1 className="text-2xl font-semibold text-foreground">Production Planning</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Adjust recipe time allocation and see real-time impact</p>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
@@ -193,6 +205,101 @@ export default function Planning() {
         ))}
       </div>
 
+      {/* Production Variance Chart */}
+      <ChartContainer title="Production Variance" subtitle="Planned vs available capacity (hours)" className="mb-6">
+        <div className="h-[260px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={[
+                {
+                  name: "Capacity",
+                  planned: Math.round(totalHours),
+                  available: Math.round(totalCapacity),
+                  variance: Math.round(totalCapacity - totalHours),
+                },
+              ]}
+              margin={{ top: 16, right: 24, left: 16, bottom: 8 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+              <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={{ stroke: 'hsl(var(--border))' }} tickLine={{ stroke: 'hsl(var(--border))' }} />
+              <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v)} axisLine={{ stroke: 'hsl(var(--border))' }} tickLine={{ stroke: 'hsl(var(--border))' }} />
+              <RechartsTooltip
+                contentStyle={{ borderRadius: 8, border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', fontSize: 12, boxShadow: '0 4px 16px hsl(var(--foreground) / 0.06)' }}
+                formatter={(value: number) => [value.toLocaleString(), ""]}
+                labelFormatter={() => "Hours"}
+              />
+              <Legend
+                content={({ payload }) => {
+                  if (!payload?.length) return null;
+                  return (
+                    <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-5 pb-1">
+                      <div className="inline-flex flex-wrap items-center justify-center gap-x-6 gap-y-2 rounded-lg border border-border/70 bg-muted/30 px-4 py-2.5 shadow-sm">
+                        {payload.map((entry) => (
+                          <div key={entry.value} className="flex items-center gap-2.5">
+                            <span
+                              className="h-3 w-5 shrink-0 rounded-sm"
+                              style={{ backgroundColor: entry.color }}
+                            />
+                            <span className="text-xs font-semibold text-foreground whitespace-nowrap">
+                              {entry.value}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }}
+              />
+              <Bar dataKey="planned" name="Planned Hours" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="available" name="Available Hours" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </ChartContainer>
+
+      {/* Recipe Planning Graph — hours by recipe */}
+      <ChartContainer
+        title="Recipe Planning"
+        subtitle="Scheduled hours by recipe (current allocation)"
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => {
+              const rows = Object.entries(allocations).map(([id, hrs]) => ({
+                recipe: recipeInfo[id]?.name || id,
+                hours: Math.round(hrs),
+              }));
+              downloadCsv(rows as unknown as Record<string, unknown>[], "planning_recipe_allocation");
+            }}
+            disabled={Object.keys(allocations).length === 0}
+          >
+            <Download className="h-3.5 w-3.5" />
+            Download CSV
+          </Button>
+        }
+        className="mb-6"
+      >
+        <div className="h-[260px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={Object.entries(allocations)
+                .map(([id, hrs]) => ({ recipe: recipeInfo[id]?.name || id, hours: Math.round(hrs) }))
+                .sort((a, b) => b.hours - a.hours)}
+              layout="vertical"
+              margin={{ top: 8, right: 24, left: 100, bottom: 8 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
+              <XAxis type="number" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v)} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={{ stroke: "hsl(var(--border))" }} />
+              <YAxis type="category" dataKey="recipe" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} width={96} axisLine={false} tickLine={false} />
+              <RechartsTooltip contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", backgroundColor: "hsl(var(--card))", fontSize: 12 }} formatter={(value: number) => [`${value.toLocaleString()} hrs`, "Hours"]} />
+              <Bar dataKey="hours" name="Hours" fill="hsl(var(--chart-1))" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </ChartContainer>
+
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr_320px]">
         {/* Eligibility Matrix */}
         <ChartContainer title="Recipe Eligibility" subtitle="Which recipes work for which flour types">
@@ -200,16 +307,16 @@ export default function Planning() {
             <table className="w-full text-sm">
               <thead>
                 <tr>
-                  <th className="px-2 py-2 text-left text-xs font-bold text-gray-700">Flour</th>
+                  <th className="px-2 py-2 text-left text-[11px] font-semibold text-foreground">Flour</th>
                   {eligibilityMatrix.recipes.map((r) => (
-                    <th key={r} className="px-2 py-2 text-center text-xs font-bold text-gray-700">{r.split(" ")[0]}</th>
+                    <th key={r} className="px-2 py-2 text-center text-[11px] font-semibold text-muted-foreground">{r.split(" ")[0]}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {eligibilityMatrix.flourTypes.map((ft, i) => (
-                  <tr key={ft} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                    <td className="px-2 py-2 text-xs font-medium text-gray-900">{ft}</td>
+                  <tr key={ft} className={i % 2 === 0 ? "bg-card" : "bg-muted/20"}>
+                    <td className="px-2 py-2 text-xs font-medium text-foreground">{ft}</td>
                     {eligibilityMatrix.recipes.map((r) => (
                       <td key={r} className="px-2 py-2 text-center">
                         {eligibilityMatrix.matrix[ft]?.[r] ? (
@@ -225,7 +332,7 @@ export default function Planning() {
                           </Tooltip>
                         ) : (
                           <span className="inline-flex items-center justify-center">
-                            <X className="h-4 w-4 text-gray-300" />
+                            <X className="h-4 w-4 text-muted-foreground/30" />
                           </span>
                         )}
                       </td>
@@ -251,9 +358,9 @@ export default function Planning() {
               const hasChanged = Math.abs(hrs - base) > sliderStep;
 
               return (
-                <div key={id} className="rounded-lg border-2 border-gray-200 bg-gray-50 px-4 py-3">
+                <div key={id} className="rounded-lg border border-border bg-background px-4 py-3">
                   <div className="mb-1 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-900">{info?.name || id}</span>
+                    <span className="text-sm font-semibold text-foreground">{info?.name || id}</span>
                     <div className="flex items-center gap-2">
                       {hasChanged && (
                         <span className={cn(
@@ -273,7 +380,7 @@ export default function Planning() {
                         <button
                           type="button"
                           onClick={() => setAllocations((prev) => ({ ...prev, [id]: base }))}
-                          className="ml-1 rounded p-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-900 transition-colors"
+                          className="ml-1 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                           title="Reset to baseline"
                         >
                           <RotateCcw className="h-3.5 w-3.5" />
@@ -281,7 +388,7 @@ export default function Planning() {
                       )}
                     </div>
                   </div>
-                  <div className="mb-1 text-[10px] text-gray-600">
+                  <div className="mb-1 text-[10px] text-muted-foreground">
                     Baseline: {Math.round(base).toLocaleString()} hrs
                     {info?.costPerHour ? ` · Cost: SAR ${(info.costPerHour / 1000).toFixed(1)}k/hr` : ""}
                     {info?.wastePct ? ` · Waste: ${info.wastePct.toFixed(1)}%` : ""}
@@ -298,7 +405,7 @@ export default function Planning() {
                       hasChanged && "[&_[data-orientation=horizontal]>.absolute]:bg-amber-500"
                     )}
                   />
-                  <div className="mt-1 flex justify-between text-[9px] text-gray-500">
+                  <div className="mt-1 flex justify-between text-[9px] text-muted-foreground/60">
                     <span>{sliderMin.toLocaleString()}</span>
                     <span>{sliderMax.toLocaleString()}</span>
                   </div>
@@ -315,7 +422,7 @@ export default function Planning() {
                   }
                   setAllocations(reset);
                 }}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-200 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent/40 hover:text-foreground transition-colors"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 Reset all to baseline
@@ -326,9 +433,9 @@ export default function Planning() {
 
         {/* Impact Panel */}
         <div className="sticky top-20 space-y-3 self-start">
-          <div className="rounded-xl border-2 border-gray-200 bg-white p-5 shadow-lg">
+          <div className="rounded-xl border border-border bg-card p-5 shadow-card">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-gray-900">Live Impact</h3>
+              <h3 className="text-sm font-semibold text-foreground">Live Impact</h3>
               {isCalculating && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
             </div>
             <div className="space-y-4">
@@ -346,11 +453,11 @@ export default function Planning() {
 
 function ImpactMetric({ label, value, status }: { label: string; value: string; status: "ok" | "warning" | "danger" }) {
   return (
-    <div className="flex items-center justify-between rounded-lg bg-gray-100 px-3 py-2.5">
+    <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2.5">
       <div className="flex items-center gap-2">
         {status === "danger" && <AlertTriangle className="h-3.5 w-3.5 text-red-600" />}
         {status === "warning" && <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />}
-        <span className="text-xs font-medium text-gray-700">{label}</span>
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
       </div>
       <span
         className={cn(

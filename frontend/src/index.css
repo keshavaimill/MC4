@@ -3,70 +3,83 @@
 @tailwind utilities;
 
 :root {
-  /* MC4 original logo colours – from WHEAT_GRAIN.svg (#ebc78c) and brand brown (#5d4037) */
-  --logo-gold: 36 68% 74%;       /* #ebc78c – wheat/gold from logo */
-  --logo-brown: 12 26% 29%;     /* #5d4037 – dark brown from logo family */
-  --logo-cream: 40 45% 96%;      /* soft cream tint to match logo */
-  --foreground-rgb: 93, 64, 55;
-  --background-start-rgb: 253, 251, 247;
-  --background-end-rgb: 255, 252, 245;
+  /* ── MC4 logo palette ────────────────────────────────────────────── */
+  --logo-gold: 36 68% 74%;           /* #ebc78c wheat/gold */
+  --logo-brown: 15 30% 22%;          /* #49352b deep warm brown  */
+  --logo-cream: 38 50% 97%;          /* soft cream tint */
 
-  /* Shadcn/ui – driven by logo palette */
-  --background: 40 33% 98%;
-  --foreground: 12 26% 29%;
+  --foreground-rgb: 73, 53, 43;
+  --background-start-rgb: 253, 251, 248;
+  --background-end-rgb: 255, 253, 248;
+
+  /* ── Shadcn semantic tokens ──────────────────────────────────────── */
+  --background: 38 40% 98%;
+  --foreground: 15 30% 22%;
   --card: 0 0% 100%;
-  --card-foreground: 12 26% 29%;
+  --card-foreground: 15 30% 22%;
   --popover: 0 0% 100%;
-  --popover-foreground: 12 26% 29%;
-  --primary: 36 68% 52%;
+  --popover-foreground: 15 30% 22%;
+  --primary: 30 52% 48%;             /* warm cognac – richer than before */
   --primary-foreground: 0 0% 100%;
-  --secondary: 36 40% 94%;
-  --secondary-foreground: 12 26% 29%;
-  --muted: 36 25% 94%;
-  --muted-foreground: 12 18% 42%;
-  --accent: 36 68% 92%;
-  --accent-foreground: 12 26% 29%;
-  --destructive: 0 84.2% 60.2%;
+  --secondary: 36 35% 95%;
+  --secondary-foreground: 15 30% 22%;
+  --muted: 36 20% 95%;
+  --muted-foreground: 15 12% 48%;
+  --accent: 36 50% 93%;
+  --accent-foreground: 15 30% 22%;
+  --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 98%;
-  --border: 36 25% 88%;
-  --input: 36 25% 88%;
-  --ring: 36 68% 52%;
-  --success: 142 76% 36%;
+  --border: 36 18% 90%;
+  --input: 36 18% 90%;
+  --ring: 30 52% 48%;
+  --success: 152 69% 31%;
   --success-foreground: 0 0% 100%;
   --warning: 38 92% 50%;
   --warning-foreground: 0 0% 100%;
-  --rust: 12 26% 29%;
-  --beige: 36 30% 88%;
-  --cream: 40 45% 96%;
-  --sage: 120 15% 65%;
+  --rust: 15 30% 22%;
+  --beige: 36 28% 89%;
+  --cream: 38 50% 97%;
+  --sage: 152 18% 58%;
   --amber: 36 68% 74%;
-  --charcoal: 12 26% 29%;
+  --charcoal: 15 30% 22%;
 
-  /* Sidebar – logo palette */
-  --sidebar-background: 40 33% 98%;
-  --sidebar-foreground: 12 26% 29%;
-  --sidebar-primary: 36 68% 52%;
+  /* ── Sidebar ─────────────────────────────────────────────────────── */
+  --sidebar-background: 38 35% 98%;
+  --sidebar-foreground: 15 30% 22%;
+  --sidebar-primary: 30 52% 48%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 36 68% 92%;
-  --sidebar-accent-foreground: 12 26% 29%;
-  --sidebar-border: 36 25% 88%;
-  --sidebar-ring: 36 68% 52%;
+  --sidebar-accent: 36 50% 93%;
+  --sidebar-accent-foreground: 15 30% 22%;
+  --sidebar-border: 36 18% 90%;
+  --sidebar-ring: 30 52% 48%;
 
-  /* Design tokens using logo colours */
-  --radius: 0.85rem;
-  --gradient-orange: linear-gradient(135deg, hsl(var(--logo-gold)) 0%, hsl(36 68% 58%) 100%);
-  --gradient-hero: radial-gradient(circle at top, hsl(0 0% 100%) 0%, hsl(40 45% 98%) 50%, hsl(36 40% 95%) 100%);
-  --shadow-card: 0 10px 30px hsl(var(--logo-brown) / 0.08);
-  --shadow-elevated: 0 20px 60px hsl(var(--logo-brown) / 0.12);
-  --shadow-hover: 0 25px 80px hsl(var(--logo-brown) / 0.14);
-  --shadow-glow: 0 15px 40px hsl(var(--logo-gold) / 0.25);
+  /* ── Design tokens ───────────────────────────────────────────────── */
+  --radius: 0.75rem;
+  --gradient-gold: linear-gradient(135deg, hsl(30 52% 48%) 0%, hsl(36 60% 60%) 100%);
+  --gradient-hero: linear-gradient(168deg, hsl(0 0% 100%) 0%, hsl(38 40% 98%) 40%, hsl(36 30% 96%) 100%);
+  --shadow-card: 0 1px 3px hsl(15 30% 22% / 0.04), 0 4px 12px hsl(15 30% 22% / 0.03);
+  --shadow-elevated: 0 4px 16px hsl(15 30% 22% / 0.06), 0 12px 40px hsl(15 30% 22% / 0.04);
+  --shadow-hover: 0 8px 24px hsl(15 30% 22% / 0.08), 0 16px 48px hsl(15 30% 22% / 0.04);
+  --shadow-glow: 0 0 0 1px hsl(30 52% 48% / 0.08), 0 8px 30px hsl(30 52% 48% / 0.12);
+
+  /* ── Chart palette (7 distinct colours) ──────────────────────────── */
+  --chart-1: 30 52% 48%;     /* cognac (primary) */
+  --chart-2: 152 69% 31%;    /* emerald */
+  --chart-3: 210 75% 52%;    /* blue */
+  --chart-4: 38 92% 50%;     /* amber */
+  --chart-5: 280 60% 56%;    /* violet */
+  --chart-6: 350 65% 52%;    /* rose */
+  --chart-7: 180 56% 42%;    /* teal */
 }
 
-/* Light theme only – dark mode disabled for consistent MC4 branding */
+/* ── Light only ────────────────────────────────────────────────────── */
 html {
   color-scheme: light;
   scroll-behavior: smooth;
   scroll-padding-top: 5rem;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
 }
 
 body {
@@ -74,104 +87,11 @@ body {
   background: var(--gradient-hero);
   background-attachment: fixed;
   margin: 0;
-  font-family: 'Inter', 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
     'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
-  width: 100%;
-  max-width: 100vw;
-}
-
-/* Arabian Mills–inspired utility classes */
-@layer utilities {
-  .section-shell {
-    border-radius: 1rem;
-  }
-  @media (min-width: 640px) {
-    .section-shell {
-      border-radius: 1.25rem;
-    }
-  }
-  @media (min-width: 1024px) {
-    .section-shell {
-      border-radius: 1.5rem;
-    }
-  }
-  .section-shell {
-    border-width: 1px;
-    border-color: hsl(var(--border) / 0.7);
-    background-color: hsl(var(--card) / 0.95);
-    box-shadow: var(--shadow-card);
-    backdrop-filter: blur(24px);
-    transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1);
-    transform: translateZ(0);
-  }
-  .section-shell:hover {
-    transform: translateY(-2px) translateZ(0);
-    box-shadow: var(--shadow-elevated);
-  }
-  .hover-lift {
-    transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1);
-    transform: translateZ(0);
-  }
-  .hover-lift:hover {
-    transform: translateY(-2px) translateZ(0);
-    box-shadow: var(--shadow-hover);
-  }
-  .shadow-card {
-    box-shadow: var(--shadow-card);
-  }
-  .shadow-elevated {
-    box-shadow: var(--shadow-elevated);
-  }
-  .shadow-glow {
-    box-shadow: var(--shadow-glow);
-  }
-  .pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    border-radius: 9999px;
-    border-width: 1px;
-    border-color: hsl(var(--border) / 0.7);
-    background-color: hsl(0 0% 100% / 0.8);
-    padding-left: 1rem;
-    padding-right: 1rem;
-    padding-top: 0.25rem;
-    padding-bottom: 0.25rem;
-    font-size: 0.65rem;
-    font-weight: 600;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
-    transform: translateZ(0);
-  }
-  .pill:hover {
-    transform: scale(1.02) translateZ(0);
-  }
-  .surface-muted {
-    border-radius: 1rem;
-    border-width: 1px;
-    border-color: hsl(var(--border) / 0.7);
-    background-color: hsl(0 0% 100% / 0.8);
-    transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1);
-    transform: translateZ(0);
-  }
-  .surface-muted:hover {
-    transform: translateY(-1px) translateZ(0);
-    box-shadow: var(--shadow-card);
-  }
-  @media (max-width: 640px) {
-    .section-shell:hover,
-    .hover-lift:hover {
-      transform: translateZ(0);
-    }
-  }
-}
-
-html {
   overflow-x: hidden;
   width: 100%;
   max-width: 100vw;
@@ -183,74 +103,78 @@ html {
   overflow-x: hidden;
 }
 
-/* Prevent grid items from expanding beyond container */
-.grid > * {
-  min-width: 0;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-/* Ensure all containers respect boundaries */
-* {
-  box-sizing: border-box;
-}
-
-/* Prevent overflow in all containers */
-.container,
-[class*="container"],
-[class*="Container"] {
-  max-width: 100%;
-  overflow-x: hidden;
-}
-
-/* Ensure tables respect container width */
-table {
-  table-layout: auto;
-  width: max-content;
-}
-
-/* Prevent overflow in chart containers (unless explicitly overridden) */
-[class*="ChartContainer"]:not([class*="overflow-visible"]),
-[class*="chart-container"]:not([class*="overflow-visible"]) {
-  max-width: 100%;
-  overflow: hidden;
-}
-
+/* ── Utility layer ─────────────────────────────────────────────────── */
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  .section-shell {
+    border-radius: var(--radius);
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card) / 0.98);
+    box-shadow: var(--shadow-card);
+    backdrop-filter: blur(20px);
+    transition: box-shadow 250ms ease, transform 200ms ease;
+  }
+  .section-shell:hover {
+    box-shadow: var(--shadow-elevated);
+  }
+  .hover-lift {
+    transition: box-shadow 250ms ease, transform 200ms ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-hover);
+  }
+  .shadow-card   { box-shadow: var(--shadow-card); }
+  .shadow-elevated { box-shadow: var(--shadow-elevated); }
+  .shadow-glow   { box-shadow: var(--shadow-glow); }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid hsl(var(--border));
+    background: hsl(0 0% 100% / 0.85);
+    padding: 0.25rem 0.875rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .surface-muted {
+    border-radius: var(--radius);
+    border: 1px solid hsl(var(--border));
+    background: hsl(0 0% 100% / 0.85);
+  }
+  .text-balance { text-wrap: balance; }
+  /* Disable hover-lift on mobile */
+  @media (max-width: 640px) {
+    .section-shell:hover,
+    .hover-lift:hover {
+      transform: none;
+      box-shadow: var(--shadow-card);
+    }
   }
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
+/* ── Layout overflow guards ────────────────────────────────────────── */
+.grid > * { min-width: 0; max-width: 100%; box-sizing: border-box; }
+* { box-sizing: border-box; }
+table { table-layout: auto; width: max-content; }
 
-::-webkit-scrollbar-track {
-  background: #f5f0eb;
-}
-
+/* ── Scrollbar ─────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: hsl(var(--muted)); }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--logo-brown) / 0.7);
-  border-radius: 4px;
+  background: hsl(var(--logo-brown) / 0.25);
+  border-radius: 100px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--logo-brown));
+  background: hsl(var(--logo-brown) / 0.4);
 }
 
-/* Ensure Recharts containers are visible */
-.recharts-wrapper {
-  display: block !important;
-  width: 100% !important;
-  height: 100% !important;
-  position: relative !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-
+/* ═══════════════════════════════════════════════════════════════════
+   Recharts global overrides – clean, professional look
+   ═══════════════════════════════════════════════════════════════════ */
+.recharts-wrapper,
 .recharts-surface {
   display: block !important;
   width: 100% !important;
@@ -258,268 +182,111 @@ table {
   visibility: visible !important;
   opacity: 1 !important;
 }
-
 .recharts-responsive-container {
   width: 100% !important;
   height: 100% !important;
-  min-height: 400px !important;
-  visibility: visible !important;
-  opacity: 1 !important;
+  min-height: 280px !important;
+}
+svg.recharts-surface {
+  overflow: visible !important;
 }
 
-.recharts-legend-wrapper {
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-
-.recharts-cartesian-axis {
-  opacity: 1 !important;
-}
-
-.recharts-cartesian-grid {
-  opacity: 1 !important;
-}
-
-.recharts-bar {
-  opacity: 1 !important;
-}
-
-.recharts-line {
-  opacity: 1 !important;
-}
-
-.recharts-legend-wrapper {
-  opacity: 1 !important;
-}
-
-.recharts-tooltip-wrapper {
-  opacity: 1 !important;
-  z-index: 1000 !important;
-}
-
+/* Axis text */
 .recharts-cartesian-axis-tick-value {
-  fill: hsl(var(--logo-brown)) !important;
-  opacity: 1 !important;
+  fill: hsl(var(--muted-foreground)) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+}
+.recharts-cartesian-axis-tick-line,
+.recharts-cartesian-axis line {
+  stroke: hsl(var(--border)) !important;
 }
 
+/* Grid */
+.recharts-cartesian-grid line {
+  stroke: hsl(var(--border) / 0.5) !important;
+}
+
+/* Legend */
+.recharts-legend-wrapper {
+  padding-top: 8px !important;
+}
 .recharts-legend-item-text {
-  color: hsl(var(--logo-brown)) !important;
-  opacity: 1 !important;
+  color: hsl(var(--foreground)) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
 }
 
-.recharts-bar-rectangle {
-  opacity: 1 !important;
+/* Tooltip */
+.recharts-tooltip-wrapper {
+  z-index: 50 !important;
+}
+.recharts-default-tooltip {
+  border-radius: 8px !important;
+  border: 1px solid hsl(var(--border)) !important;
+  background: hsl(var(--card)) !important;
+  box-shadow: var(--shadow-elevated) !important;
+  padding: 10px 14px !important;
+  font-size: 12px !important;
 }
 
+/* Bar & line basics */
+.recharts-bar-rectangle { opacity: 1 !important; }
 .recharts-line-curve {
   opacity: 1 !important;
   stroke-width: 2 !important;
 }
+.recharts-reference-line-line { opacity: 1 !important; }
 
-.recharts-reference-line-line {
-  opacity: 1 !important;
-}
-
-/* Ensure chart containers have proper dimensions */
-[class*="recharts"] {
-  opacity: 1 !important;
-}
-
-svg.recharts-surface {
-  overflow: visible !important;
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-
-.chart-container {
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-
-.chart-container svg {
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  width: 100% !important;
-  height: 100% !important;
-}
-
-/* React DatePicker Custom Styling */
-.react-datepicker-wrapper {
-  display: block;
-  width: 100%;
-}
-
+/* ═══════════════════════════════════════════════════════════════════
+   React DatePicker
+   ═══════════════════════════════════════════════════════════════════ */
+.react-datepicker-wrapper { display: block; width: 100%; }
 .react-datepicker {
   font-family: inherit;
   border: 1px solid hsl(var(--border));
-  border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border-radius: 10px;
+  box-shadow: var(--shadow-elevated);
   background-color: #fff !important;
-  opacity: 1 !important;
   z-index: 9999 !important;
 }
-
 .react-datepicker__header {
   background-color: #fff !important;
-  border-bottom: 1px solid #e8ddd0;
-  border-radius: 8px 8px 0 0;
+  border-bottom: 1px solid hsl(var(--border));
+  border-radius: 10px 10px 0 0;
   padding-top: 0.75rem;
-  opacity: 1 !important;
 }
-
-.react-datepicker__current-month {
-  color: hsl(var(--logo-brown));
-  font-weight: 600;
-  font-size: 0.875rem;
-  padding-bottom: 0.5rem;
-}
-
-.react-datepicker__day-name {
-  color: hsl(var(--logo-brown) / 0.8);
-  font-weight: 600;
-  font-size: 0.75rem;
-  width: 2rem;
-  line-height: 2rem;
-  margin: 0.166rem;
-}
-
-.react-datepicker__day {
-  color: hsl(var(--logo-brown));
-  width: 2rem;
-  line-height: 2rem;
-  margin: 0.166rem;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.react-datepicker__day:hover {
-  background-color: hsl(var(--accent));
-  border-radius: 4px;
-}
-
+.react-datepicker__current-month { color: hsl(var(--foreground)); font-weight: 600; font-size: 0.875rem; padding-bottom: 0.5rem; }
+.react-datepicker__day-name { color: hsl(var(--muted-foreground)); font-weight: 600; font-size: 0.75rem; width: 2rem; line-height: 2rem; margin: 0.166rem; }
+.react-datepicker__day { color: hsl(var(--foreground)); width: 2rem; line-height: 2rem; margin: 0.166rem; border-radius: 6px; transition: all 0.15s; }
+.react-datepicker__day:hover { background-color: hsl(var(--accent)); }
 .react-datepicker__day--selected,
 .react-datepicker__day--in-selecting-range,
-.react-datepicker__day--in-range {
-  background-color: hsl(var(--primary)) !important;
-  color: white;
-  font-weight: 600;
-  border-radius: 4px;
-}
-
+.react-datepicker__day--in-range { background-color: hsl(var(--primary)) !important; color: white; font-weight: 600; border-radius: 6px; }
 .react-datepicker__day--selected:hover,
 .react-datepicker__day--in-selecting-range:hover,
-.react-datepicker__day--in-range:hover {
-  background-color: hsl(36 68% 45%) !important;
-}
+.react-datepicker__day--in-range:hover { background-color: hsl(30 52% 42%) !important; }
+.react-datepicker__day--keyboard-selected { background-color: hsl(var(--accent)); color: hsl(var(--foreground)); }
+.react-datepicker__day--disabled { color: hsl(var(--muted-foreground) / 0.4); cursor: not-allowed; }
+.react-datepicker__day--outside-month { color: hsl(var(--muted-foreground) / 0.35); }
+.react-datepicker__navigation { top: 0.75rem; }
+.react-datepicker__navigation-icon::before { border-color: hsl(var(--muted-foreground)); border-width: 2px 2px 0 0; }
+.react-datepicker__navigation:hover *::before { border-color: hsl(var(--primary)); }
+.react-datepicker__triangle { border-bottom-color: #fff !important; }
+.react-datepicker__triangle::before { border-bottom-color: hsl(var(--border)) !important; }
+.react-datepicker-popper { z-index: 9999 !important; }
+.react-datepicker-popper[data-placement^="bottom"] { margin-top: 6px !important; }
+.react-datepicker-popper[data-placement^="top"] { margin-bottom: 6px !important; }
+.react-datepicker__month-container,
+.react-datepicker__month { background-color: #fff !important; }
 
-.react-datepicker__day--keyboard-selected {
-  background-color: hsl(var(--accent));
-  color: hsl(var(--logo-brown));
-}
-
-.react-datepicker__day--disabled {
-  color: #d7ccc8;
-  cursor: not-allowed;
-}
-
-.react-datepicker__day--outside-month {
-  color: #d7ccc8;
-}
-
-.react-datepicker__navigation {
-  top: 0.75rem;
-}
-
-.react-datepicker__navigation-icon::before {
-  border-color: hsl(var(--logo-brown) / 0.8);
-  border-width: 2px 2px 0 0;
-}
-
-.react-datepicker__navigation:hover *::before {
-  border-color: hsl(var(--primary));
-}
-
-.react-datepicker__triangle {
-  border-bottom-color: #fff !important;
-}
-
-.react-datepicker__triangle::before {
-  border-bottom-color: hsl(var(--border)) !important;
-}
-
-/* Ensure calendar popup is visible */
-.react-datepicker__portal {
-  z-index: 9999 !important;
-  opacity: 1 !important;
-}
-
-.react-datepicker-popper {
-  z-index: 9999 !important;
-  opacity: 1 !important;
-}
-
-.react-datepicker-popper[data-placement^="bottom"] {
-  margin-top: 8px !important;
-}
-
-.react-datepicker-popper[data-placement^="top"] {
-  margin-bottom: 8px !important;
-}
-
-/* Ensure all calendar elements are fully opaque */
-.react-datepicker__month-container {
-  background-color: #fff !important;
-  opacity: 1 !important;
-}
-
-.react-datepicker__month {
-  background-color: #fff !important;
-  opacity: 1 !important;
-}
-
-.react-datepicker__day {
-  opacity: 1 !important;
-}
-
-.react-datepicker__day-name {
-  opacity: 1 !important;
-}
-
-/* Leaflet map overrides – keep map inside card z-stacking */
-.leaflet-container {
-  z-index: 0;
-  font-family: inherit;
-  cursor: grab;
-}
-.leaflet-container:active {
-  cursor: grabbing;
-}
-.leaflet-control-zoom {
-  border: none !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,.2) !important;
-  border-radius: 8px !important;
-  overflow: hidden;
-}
-.leaflet-control-zoom a {
-  background: hsl(var(--card)) !important;
-  color: hsl(var(--foreground)) !important;
-  border-bottom: 1px solid hsl(var(--border)) !important;
-  width: 32px !important;
-  height: 32px !important;
-  line-height: 32px !important;
-  font-size: 16px !important;
-}
-.leaflet-control-zoom a:hover {
-  background: hsl(var(--accent)) !important;
-}
-/* Vibrant, saturated map tiles */
-.leaflet-tile-pane {
-  filter: saturate(1.15) contrast(1.05);
-}
-/* Pulsing glow on marker hover */
-.leaflet-interactive:hover {
-  filter: drop-shadow(0 0 6px currentColor) brightness(1.1);
-  transition: filter 0.2s ease;
-}
+/* ═══════════════════════════════════════════════════════════════════
+   Leaflet
+   ═══════════════════════════════════════════════════════════════════ */
+.leaflet-container { z-index: 0; font-family: inherit; cursor: grab; }
+.leaflet-container:active { cursor: grabbing; }
+.leaflet-control-zoom { border: none !important; box-shadow: var(--shadow-card) !important; border-radius: 8px !important; overflow: hidden; }
+.leaflet-control-zoom a { background: hsl(var(--card)) !important; color: hsl(var(--foreground)) !important; border-bottom: 1px solid hsl(var(--border)) !important; width: 32px !important; height: 32px !important; line-height: 32px !important; font-size: 16px !important; }
+.leaflet-control-zoom a:hover { background: hsl(var(--accent)) !important; }
+.leaflet-tile-pane { filter: saturate(1.1) contrast(1.02); }
+.leaflet-interactive:hover { filter: drop-shadow(0 0 5px currentColor) brightness(1.08); transition: filter 0.2s ease; }

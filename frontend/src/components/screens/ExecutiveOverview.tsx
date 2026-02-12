@@ -255,26 +255,6 @@ export default function ExecutiveOverview({ fromDate, toDate, scenario = 'base' 
     },
   ];
 
-  // AI Executive Brief structured data
-  const aiBrief = {
-    keyDriver: kpis.demand.growth_pct > 5
-      ? 'Demand surge in 10kg flour segment'
-      : 'Stable demand with seasonal adjustment',
-    rootCause: kpis.capacity.overload_mills > 0
-      ? `Mill overload caused by recipe mix allocation exceeding ${kpis.capacity.utilization_pct.toFixed(0)}% capacity`
-      : 'Recipe mix is within normal distribution across mills',
-    impact: {
-      time: `${kpis.recipe_time.total_hours.toFixed(0)} hrs scheduled`,
-      cost: `+2.2% wheat cost increase`,
-      risk: kpis.capacity.overload_mills > 0 ? 'High - immediate action needed' : 'Low - within tolerance',
-    },
-    actions: [
-      { label: 'Rebalance recipe mix for Mill B', screen: 'recipe' },
-      { label: 'Review wheat sourcing alternatives', screen: 'rawmaterials' },
-      { label: 'Adjust 10kg SKU production schedule', screen: 'demand' },
-    ],
-  };
-
   const formatYAxisTick = (value: number) => {
     if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
     return value.toLocaleString('en-US', { maximumFractionDigits: 0 });
@@ -399,69 +379,6 @@ export default function ExecutiveOverview({ fromDate, toDate, scenario = 'base' 
           )}
         </div>
 
-        {/* 2.4 AI Executive Brief (Right Panel) */}
-        <div className="bg-card rounded-lg shadow-card border border-border p-5">
-          <div className="flex items-center space-x-2 mb-4">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground text-sm">🧠</span>
-            </div>
-            <h2 className="text-lg font-semibold text-foreground">AI Executive Brief</h2>
-          </div>
-
-          <div className="space-y-4">
-            {/* Key Driver */}
-            <div>
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Key Driver</h4>
-              <p className="text-sm text-foreground font-medium">{aiBrief.keyDriver}</p>
-            </div>
-
-            {/* Root Cause */}
-            <div>
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Root Cause</h4>
-              <p className="text-sm text-muted-foreground">{aiBrief.rootCause}</p>
-            </div>
-
-            {/* Impact */}
-            <div>
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Impact</h4>
-              <div className="space-y-1 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Time:</span>
-                  <span className="font-medium text-foreground">{aiBrief.impact.time}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Cost:</span>
-                  <span className="font-medium text-warning">{aiBrief.impact.cost}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Risk:</span>
-                  <span className={`font-medium ${kpis.capacity.overload_mills > 0 ? 'text-destructive' : 'text-success'}`}>
-                    {aiBrief.impact.risk}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Recommended Actions */}
-            <div>
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Recommended Actions</h4>
-              <div className="space-y-1.5">
-                {aiBrief.actions.map((action, idx) => (
-                  <button
-                    key={idx}
-                    className="w-full flex items-center space-x-2 px-3 py-2 rounded-lg border border-border hover:border-primary/50 hover:bg-accent transition-colors duration-200 ease-out text-left group"
-                  >
-                    <span className="w-5 h-5 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
-                      {idx + 1}
-                    </span>
-                    <span className="text-xs text-foreground flex-1">{action.label}</span>
-                    <ChevronRight className="w-3 h-3 text-muted-foreground group-hover:text-primary" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* 2.3 Mill Capacity Heatmap */}

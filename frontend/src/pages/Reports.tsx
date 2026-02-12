@@ -79,8 +79,9 @@ export default function Reports() {
   return (
     <DashboardLayout>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Reports & Emails</h1>
-        <p className="text-sm text-gray-600 mt-1">Download CSV reports or email them directly from the backend</p>
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Analysis</p>
+        <h1 className="text-2xl font-semibold text-foreground">Reports & Emails</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Download CSV reports or email them directly from the backend</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
@@ -90,7 +91,7 @@ export default function Reports() {
             {reportDefinitions.map((report) => (
               <div
                 key={report.id}
-                className="flex items-center justify-between rounded-lg border-2 border-gray-200 bg-gray-50 p-4 transition-colors hover:bg-gray-100"
+                className="flex items-center justify-between rounded-lg border border-border bg-background p-4 transition-colors hover:bg-accent/40"
               >
                 <div className="flex items-center gap-3">
                   <div
@@ -112,13 +113,13 @@ export default function Reports() {
                     })()}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{report.title}</p>
-                    <p className="text-[11px] text-gray-600">{report.description}</p>
+                    <p className="text-sm font-medium text-foreground">{report.title}</p>
+                    <p className="text-[11px] text-muted-foreground">{report.description}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    className="rounded-md p-1.5 text-gray-600 hover:bg-gray-200 hover:text-gray-900 disabled:opacity-40"
+                    className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
                     onClick={() => handleEmail(report.id)}
                     disabled={emailingId === report.id}
                     title="Email report"
@@ -130,7 +131,7 @@ export default function Reports() {
                     )}
                   </button>
                   <button
-                    className="rounded-md p-1.5 text-gray-600 hover:bg-gray-200 hover:text-gray-900 disabled:opacity-40"
+                    className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
                     onClick={() => handleDownload(report.id)}
                     disabled={downloadingId === report.id}
                     title="Download CSV"
@@ -149,32 +150,32 @@ export default function Reports() {
 
         {/* Filter Info */}
         <ChartContainer title="Current Filters" subtitle="Reports are generated with these parameters">
-          <div className="rounded-lg border-2 border-gray-200 bg-white p-5 space-y-4">
+          <div className="rounded-lg border border-border bg-card p-5 space-y-4">
             <div className="grid gap-3 text-sm">
-              <div className="flex justify-between border-b border-gray-200 pb-2">
-                <span className="font-medium text-gray-600">From Date</span>
-                <span className="font-mono text-gray-900">{queryParams.from_date}</span>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="font-medium text-muted-foreground">From Date</span>
+                <span className="font-mono text-foreground">{queryParams.from_date}</span>
               </div>
-              <div className="flex justify-between border-b border-gray-200 pb-2">
-                <span className="font-medium text-gray-600">To Date</span>
-                <span className="font-mono text-gray-900">{queryParams.to_date}</span>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="font-medium text-muted-foreground">To Date</span>
+                <span className="font-mono text-foreground">{queryParams.to_date}</span>
               </div>
-              <div className="flex justify-between border-b border-gray-200 pb-2">
-                <span className="font-medium text-gray-600">Horizon</span>
-                <span className="font-mono text-gray-900 capitalize">{queryParams.horizon}</span>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="font-medium text-muted-foreground">Horizon</span>
+                <span className="font-mono text-foreground capitalize">{queryParams.horizon}</span>
               </div>
               <div className="flex justify-between">
-                <span className="font-medium text-gray-600">Scenario</span>
-                <span className="font-mono text-gray-900 capitalize">{queryParams.scenario}</span>
+                <span className="font-medium text-muted-foreground">Scenario</span>
+                <span className="font-mono text-foreground capitalize">{queryParams.scenario}</span>
               </div>
             </div>
 
             <div className="mt-4 rounded-lg bg-accent p-4 border border-primary/30">
               <div className="flex items-center gap-2 text-xs">
                 <Mail className="h-3.5 w-3.5 text-primary" />
-                <span className="font-medium text-gray-900">Email delivery</span>
+                <span className="font-medium text-foreground">Email delivery</span>
               </div>
-              <p className="mt-1 text-[11px] text-gray-600">
+              <p className="mt-1 text-[11px] text-muted-foreground">
                 Reports are sent via the backend email service (SendGrid). Configure SENDGRID_API_KEY and ALERT_EMAIL environment variables on the server.
               </p>
             </div>

@@ -24,7 +24,7 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-white text-sm text-gray-600">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-background text-sm text-muted-foreground">
         Checking access...
       </div>
     );
