@@ -1,7 +1,9 @@
 /**
  * Thin API helper – all backend calls go through here.
- * Uses the Vite dev-server proxy (/api → http://localhost:8008).
+ * Uses the Vite dev-server proxy (e.g. /api -> backend) or VITE_API_BASE_URL.
  */
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 function qs(params: Record<string, string | undefined>): string {
   const entries = Object.entries(params).filter(
@@ -15,7 +17,7 @@ async function get<T = unknown>(
   path: string,
   params: Record<string, string | undefined> = {}
 ): Promise<T> {
-  const res = await fetch(`${path}${qs(params)}`);
+  const res = await fetch(`${API_BASE_URL}${path}${qs(params)}`);
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`API ${res.status}: ${text}`);
@@ -24,7 +26,7 @@ async function get<T = unknown>(
 }
 
 async function post<T = unknown>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

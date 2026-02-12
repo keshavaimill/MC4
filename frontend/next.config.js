@@ -2,7 +2,7 @@
 
 // Backend URL for rewrites (dev and prod when frontend proxies /api to backend).
 // Set BACKEND_URL when deploying so /api/* is proxied to your backend (e.g. https://your-api.azurewebsites.net).
-const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
+const backendUrl = process.env.BACKEND_URL || 'https://aimilltest-dbd6dvhdcceef3d4.westus2-01.azurewebsites.net';
 
 const nextConfig = {
   reactStrictMode: true,
