@@ -35,7 +35,6 @@ const navGroups = [
   {
     label: "Analysis",
     items: [
-      { title: "Scenarios & What-If", url: "/scenarios", icon: FlaskConical },
       { title: "Alerts & Actions", url: "/alerts", icon: Bell },
       { title: "Reports & Emails", url: "/reports", icon: FileText },
     ],

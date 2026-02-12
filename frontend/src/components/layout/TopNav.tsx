@@ -9,7 +9,6 @@ const navItems = [
   { label: "Operations", path: "/operations" },
   { label: "Materials", path: "/materials" },
   { label: "Waste", path: "/waste" },
-  { label: "Scenarios", path: "/scenarios" },
   { label: "Alerts", path: "/alerts" },
 ];
 

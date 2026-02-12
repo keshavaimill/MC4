@@ -40,7 +40,6 @@ const navigation = [
   { id: 'capacity', label: 'Mill Runtime & Sequencing', icon: Factory },
   { id: 'rawmaterials', label: 'Raw Materials & Wheat', icon: Package },
   { id: 'waste', label: 'Waste & Vision 2030', icon: Leaf },
-  { id: 'scenarios', label: 'Scenarios & Seasonality', icon: Sparkles },
   { id: 'alerts', label: 'Alerts & Decisions', icon: AlertTriangle },
   { id: 'reports', label: 'Reports & Emails', icon: FileText },
 ];
@@ -76,9 +75,8 @@ export default function Layout({
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
       <aside
-        className={`${
-          sidebarOpen ? 'w-64' : 'w-20'
-        } bg-card border-r border-border transition-all duration-300 flex flex-col shadow-card`}
+        className={`${sidebarOpen ? 'w-64' : 'w-20'
+          } bg-card border-r border-border transition-all duration-300 flex flex-col shadow-card`}
       >
         {/* Logo */}
         <div className="h-16 border-b border-border flex items-center px-4 bg-muted/30">
@@ -108,11 +106,10 @@ export default function Layout({
               <button
                 key={item.id}
                 onClick={() => setActiveScreen(item.id)}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 ease-out ${
-                  isActive
+                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 ease-out ${isActive
                     ? 'bg-primary text-primary-foreground shadow-card'
                     : 'text-foreground hover:bg-accent hover:text-primary'
-                }`}
+                  }`}
                 title={!sidebarOpen ? item.label : undefined}
               >
                 <Icon className="w-5 h-5 flex-shrink-0" />

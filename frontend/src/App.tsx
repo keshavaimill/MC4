@@ -10,7 +10,6 @@ import Planning from "./pages/Planning";
 import Operations from "./pages/Operations";
 import Materials from "./pages/Materials";
 import WastePage from "./pages/WastePage";
-import Scenarios from "./pages/Scenarios";
 import Alerts from "./pages/Alerts";
 import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
@@ -95,14 +94,7 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
-              <Route
-                path="/scenarios"
-                element={
-                  <ProtectedRoute>
-                    <Scenarios />
-                  </ProtectedRoute>
-                }
-              />
+
               <Route
                 path="/alerts"
                 element={

@@ -51,12 +51,12 @@ export default function WastePage() {
 
   const wasteKpis = kpis
     ? [
-        { label: "Waste Rate", value: kpis.waste_rate_pct.toFixed(1), unit: "%", delta: -kpis.waste_gap, driver: `vs ${kpis.waste_target_pct}% target` },
-        { label: "Target Waste", value: kpis.waste_target_pct.toFixed(1), unit: "%", delta: 0, driver: "Vision 2030 target" },
-        { label: "Energy / Ton", value: kpis.energy_per_ton.toFixed(1), unit: "kWh", delta: -6, driver: "Energy efficiency" },
-        { label: "Water / Ton", value: kpis.water_per_ton.toFixed(2), unit: "m\u00B3", delta: -4, driver: "Water efficiency" },
-        { label: "Vision 2030 Index", value: kpis.vision_2030_score.toFixed(0), unit: "/100", delta: 4, driver: "Composite sustainability" },
-      ]
+      { label: "Waste Rate", value: kpis.waste_rate_pct.toFixed(1), unit: "%", delta: -kpis.waste_gap, driver: `vs ${kpis.waste_target_pct}% target` },
+      { label: "Target Waste", value: kpis.waste_target_pct.toFixed(1), unit: "%", delta: 0, driver: "Vision 2030 target" },
+      { label: "Energy / Ton", value: kpis.energy_per_ton.toFixed(1), unit: "kWh", delta: -6, driver: "Energy efficiency" },
+      { label: "Water / Ton", value: kpis.water_per_ton.toFixed(2), unit: "m\u00B3", delta: -4, driver: "Water efficiency" },
+      { label: "Vision 2030 Index", value: kpis.vision_2030_score.toFixed(0), unit: "/100", delta: 4, driver: "Composite sustainability" },
+    ]
     : [];
 
   // Build waste heatmap: mills x recipes
@@ -133,41 +133,52 @@ export default function WastePage() {
           {heatmapData.mills.length > 0 ? (
             <div className="w-full" style={{ height: '400px', overflowY: 'auto' }}>
               <table className="w-full text-sm">
-              <thead>
-                <tr>
-                  <th className="px-3 py-2 text-left text-xs font-bold text-muted-foreground">Mill</th>
-                  {heatmapData.recipes.map((r) => (
-                    <th key={r} className="px-3 py-2 text-center text-xs font-bold text-muted-foreground">{r}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {heatmapData.mills.map((mill) => (
-                  <tr key={mill}>
-                    <td className="px-3 py-2 font-semibold text-foreground">{mill}</td>
-                    {heatmapData.recipes.map((recipe) => {
-                      const val = heatmapData.matrix[mill]?.[recipe] || 0;
-                      const maxWaste = Math.max(6, ...Object.values(heatmapData.matrix).flatMap(m => Object.values(m)));
-                      const intensity = Math.min(1, val / maxWaste);
-                      const opacity = 0.3 + (intensity * 0.7);
-                      return (
-                        <td key={recipe} className="px-3 py-2 text-center">
-                          <div
-                            className="mx-auto flex h-10 w-16 items-center justify-center rounded-md font-mono text-xs font-bold"
-                            style={{
-                              backgroundColor: `rgba(220, 38, 38, ${opacity})`,
-                              color: intensity > 0.4 ? "white" : "hsl(var(--foreground))",
-                            }}
-                          >
-                            {val.toFixed(1)}%
-                          </div>
-                        </td>
-                      );
-                    })}
+                <thead>
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-bold text-muted-foreground">Mill</th>
+                    {heatmapData.recipes.map((r) => (
+                      <th key={r} className="px-3 py-2 text-center text-xs font-bold text-muted-foreground">{r}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {heatmapData.mills.map((mill) => (
+                    <tr key={mill}>
+                      <td className="px-3 py-2 font-semibold text-foreground">{mill}</td>
+                      {heatmapData.recipes.map((recipe) => {
+                        const val = heatmapData.matrix[mill]?.[recipe] || 0;
+
+                        if (val < 2.5) {
+                          return (
+                            <td key={recipe} className="px-3 py-2 text-center">
+                              <div className="mx-auto flex h-10 w-16 items-center justify-center rounded-md font-mono text-xs font-bold bg-emerald-500 text-white">
+                                {val.toFixed(1)}%
+                              </div>
+                            </td>
+                          );
+                        }
+
+                        const maxWaste = Math.max(6, ...Object.values(heatmapData.matrix).flatMap(m => Object.values(m)));
+                        const intensity = Math.min(1, val / maxWaste);
+                        const opacity = 0.3 + (intensity * 0.7);
+                        return (
+                          <td key={recipe} className="px-3 py-2 text-center">
+                            <div
+                              className="mx-auto flex h-10 w-16 items-center justify-center rounded-md font-mono text-xs font-bold"
+                              style={{
+                                backgroundColor: `rgba(220, 38, 38, ${opacity})`,
+                                color: intensity > 0.4 ? "white" : "hsl(var(--foreground))",
+                              }}
+                            >
+                              {val.toFixed(1)}%
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <p className="py-8 text-center text-sm text-muted-foreground">No waste data available.</p>
