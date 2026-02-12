@@ -42,12 +42,13 @@ export default function Scenarios() {
   const [scenarioKpis, setScenarioKpis] = useState<ExecutiveKpis | null>(null);
   const [baseMills, setBaseMills] = useState<MillCapRow[]>([]);
   const [scenarioMills, setScenarioMills] = useState<MillCapRow[]>([]);
+  const [allMillNames, setAllMillNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = async (scenario: string) => {
     setLoading(true);
     try {
-      // KPIs use future-only dates; mill capacity data uses full range
+      // KPIs use future-only dates; mill capacity data uses full range with date filters
       const baseKpiParams = { ...kpiQueryParams, scenario: "base" };
       const scenKpiParams = { ...kpiQueryParams, scenario };
       const baseDataParams = { ...queryParams, scenario: "base" };
@@ -56,14 +57,42 @@ export default function Scenarios() {
       const [bKpi, sKpi, bMills, sMills] = await Promise.all([
         fetchExecutiveKpis(baseKpiParams),        // KPIs use future-only dates
         fetchExecutiveKpis(scenKpiParams),         // KPIs use future-only dates
-        fetchMillCapacity(baseDataParams),         // Data uses full range
-        fetchMillCapacity(scenDataParams),         // Data uses full range
+        fetchMillCapacity(baseDataParams),         // Capacity Impact: uses date filters
+        fetchMillCapacity(scenDataParams),         // Capacity Impact: uses date filters
       ]);
 
       setBaseKpis(bKpi);
       setScenarioKpis(sKpi);
-      setBaseMills(bMills.data as unknown as MillCapRow[]);
-      setScenarioMills(sMills.data as unknown as MillCapRow[]);
+      
+      // Ensure we have valid data arrays
+      const baseMillsData = Array.isArray(bMills.data) ? bMills.data : [];
+      const scenarioMillsData = Array.isArray(sMills.data) ? sMills.data : [];
+      
+      setBaseMills(baseMillsData as unknown as MillCapRow[]);
+      setScenarioMills(scenarioMillsData as unknown as MillCapRow[]);
+      
+      // Debug: Log to help diagnose why base hours might be 0
+      if (baseMillsData.length === 0) {
+        console.warn("Base mills data is empty. Params:", baseDataParams);
+      }
+      if (scenarioMillsData.length === 0) {
+        console.warn("Scenario mills data is empty. Params:", scenDataParams);
+      }
+      
+      // Extract all unique mill names from the data to ensure all mills are shown
+      const millNamesFromData = new Set<string>();
+      (bMills.data as unknown as MillCapRow[]).forEach((m) => {
+        if (m.mill_name) millNamesFromData.add(m.mill_name);
+        else if (m.mill_id) millNamesFromData.add(m.mill_id);
+      });
+      (sMills.data as unknown as MillCapRow[]).forEach((m) => {
+        if (m.mill_name) millNamesFromData.add(m.mill_name);
+        else if (m.mill_id) millNamesFromData.add(m.mill_id);
+      });
+      // Ensure all known mills are included (even if they have no data)
+      const knownMills = ["Dammam Mill", "Medina Mill", "Al-Kharj Mill"];
+      knownMills.forEach(m => millNamesFromData.add(m));
+      setAllMillNames(Array.from(millNamesFromData).sort());
     } catch (err) {
       console.error("Scenario data load error:", err);
     } finally {
@@ -114,18 +143,34 @@ export default function Scenarios() {
         ]
       : [];
 
-  // Mill overload chart
+  // Mill overload chart - aggregate across all periods per mill
   const millOverloadChart = (() => {
-    const millNames = [...new Set([...baseMills.map((m) => m.mill_name || m.mill_id), ...scenarioMills.map((m) => m.mill_name || m.mill_id)])].sort();
-    return millNames.map((mill) => {
-      const bRow = baseMills.find((m) => (m.mill_name || m.mill_id) === mill);
-      const sRow = scenarioMills.find((m) => (m.mill_name || m.mill_id) === mill);
-      return {
-        mill,
-        base: bRow ? Math.round(bRow.overload_hours) : 0,
-        scenario: sRow ? Math.round(sRow.overload_hours) : 0,
-      };
+    // Aggregate base mills by mill_name/mill_id
+    const baseByMill: Record<string, number> = {};
+    baseMills.forEach((m) => {
+      const millKey = m.mill_name || m.mill_id;
+      if (!baseByMill[millKey]) baseByMill[millKey] = 0;
+      baseByMill[millKey] += Number(m.overload_hours) || 0;
     });
+    
+    // Aggregate scenario mills by mill_name/mill_id
+    const scenarioByMill: Record<string, number> = {};
+    scenarioMills.forEach((m) => {
+      const millKey = m.mill_name || m.mill_id;
+      if (!scenarioByMill[millKey]) scenarioByMill[millKey] = 0;
+      scenarioByMill[millKey] += Number(m.overload_hours) || 0;
+    });
+    
+    // Get all unique mill names from both datasets and ensure all known mills are included
+    const millNames = allMillNames.length > 0 
+      ? allMillNames 
+      : [...new Set([...Object.keys(baseByMill), ...Object.keys(scenarioByMill)])].sort();
+    
+    return millNames.map((mill) => ({
+      mill,
+      base: Math.round(baseByMill[mill] || 0),
+      scenario: Math.round(scenarioByMill[mill] || 0),
+    }));
   })();
 
   if (loading) {

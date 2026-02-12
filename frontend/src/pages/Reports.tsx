@@ -169,7 +169,6 @@ export default function Reports() {
                 <span className="font-mono text-foreground capitalize">{queryParams.scenario}</span>
               </div>
             </div>
-
           </div>
         </ChartContainer>
       </div>

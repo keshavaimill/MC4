@@ -5,7 +5,10 @@ import axios from 'axios';
  * when the backend is on a different host (e.g. https://api.example.com).
  * When unset, requests are same-origin (/api/*) and rely on Next rewrites or reverse proxy.
  */
-const baseURL = "aimilltest-dbd6dvhdcceef3d4.westus2-01.azurewebsites.net";
+const baseURL =
+  typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_BASE_URL
+    ? process.env.NEXT_PUBLIC_API_BASE_URL.replace(/\/$/, '') // strip trailing slash
+    : '';
 
 export const api = axios.create({
   baseURL,

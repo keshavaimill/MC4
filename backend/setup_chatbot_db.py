@@ -5,17 +5,7 @@ import os
 import sys
 import json
 
-# Add parent directory to path to find Text2SQL_V2
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
-
-# Add Text2SQL_V2 to path
-text2sql_path = os.path.join(parent_dir, "Text2SQL_V2")
-if text2sql_path not in sys.path:
-    sys.path.insert(0, text2sql_path)
-
-# Now import from Text2SQL_V2 modules (they're in the path)
+# Import from local backend modules (Text2SQL_V2 is now integrated into backend)
 from core.db_builder import build_database, execute_sql
 from core.schema_loader import SchemaLoader
 
@@ -47,19 +37,14 @@ MC4_SCHEMA = [
     {"table_name": "fact_mill_recipe_plan", "path": os.path.join(datasets_dir, "fact_mill_recipe_plan.csv")},
     {"table_name": "fact_wheat_requirement", "path": os.path.join(datasets_dir, "fact_wheat_requirement.csv")},
     {"table_name": "fact_waste_metrics", "path": os.path.join(datasets_dir, "fact_waste_metrics.csv")},
-    {"table_name": "raw_material_prices", "path": os.path.join(datasets_dir, "raw_material_prices.csv")},
     # Layer 4 — KPI Snapshot
     {"table_name": "fact_kpi_snapshot", "path": os.path.join(datasets_dir, "fact_kpi_snapshot.csv")},
-    # Time
-    {"table_name": "time_dimension", "path": os.path.join(datasets_dir, "time_dimension.csv")},
-    # Recipe Mix (helper)
-    {"table_name": "recipe_mix", "path": os.path.join(datasets_dir, "recipe_mix.csv")},
 ]
 
 def setup_database():
     """Setup SQLite database for Text2SQL"""
-    parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    db_path = os.path.join(parent_dir, "Text2SQL_V2", "chatbot.db")
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    db_path = os.path.join(backend_dir, "chatbot.db")
     
     print("🔄 Building MC4 database for Text2SQL...")
     build_database(MC4_SCHEMA, db_path)

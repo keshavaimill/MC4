@@ -40,10 +40,10 @@ NEXT_PUBLIC_API_BASE_URL=https://your-api.example.com npm run build
 
 Or in your host’s env (Azure App Settings, AWS Amplify / CodeBuild env, etc.) set:
 
-- `NEXT_PUBLIC_API_BASE_URL=https://aimilltest-dbd6dvhdcceef3d4.westus2-01.azurewebsites.net`  
+- `NEXT_PUBLIC_API_BASE_URL=https://your-backend.azurewebsites.net`  
   (no trailing slash)
 
-Then run `npm run build`. All API requests will go to `https://aimilltest-dbd6dvhdcceef3d4.westus2-01.azurewebsites.net/api/...`.
+Then run `npm run build`. All API requests will go to `https://your-backend.azurewebsites.net/api/...`.
 
 - **CORS:** The FastAPI backend must allow your frontend origin (already configured for `*` in dev; restrict in production).
 - **Backend:** Deploy the FastAPI app (e.g. Azure App Service, AWS ECS/EC2, Lambda + HTTP API) and note its URL.

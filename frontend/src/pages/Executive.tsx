@@ -4,6 +4,8 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { KpiTile } from "@/components/dashboard/KpiTile";
 import { ChartContainer } from "@/components/dashboard/ChartContainer";
 import { SkuForecastTrendChart } from "@/components/dashboard/SkuForecastTrendChart";
+import { ProductionPlanningTrendChart } from "@/components/dashboard/ProductionPlanningTrendChart";
+import { RecipePlanningChart } from "@/components/dashboard/RecipePlanningChart";
 import { useFilters } from "@/context/FilterContext";
 import { fetchExecutiveKpis, fetchMillCapacity, type ExecutiveKpis } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -83,13 +85,13 @@ export default function Executive() {
   const [capacityData, setCapacityData] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Capacity/heatmap params: use filter date range + horizon that matches selected range
+  // Capacity/heatmap params: use future-only date range (not a trend chart)
   const capacityParams = useMemo(
     () => ({
-      ...queryParams,
+      ...kpiQueryParams,
       horizon: capacityHorizonForFilter(periodFilter),
     }),
-    [queryParams.from_date, queryParams.to_date, queryParams.scenario, queryParams.mill_id, periodFilter]
+    [kpiQueryParams.from_date, kpiQueryParams.to_date, kpiQueryParams.scenario, kpiQueryParams.mill_id, periodFilter]
   );
 
   useEffect(() => {
@@ -114,11 +116,9 @@ export default function Executive() {
   }, [
     kpiQueryParams.from_date,
     kpiQueryParams.to_date,
-    capacityParams.from_date,
-    capacityParams.to_date,
-    capacityParams.scenario,
+    kpiQueryParams.scenario,
     capacityParams.horizon,
-    capacityParams.mill_id,
+    kpiQueryParams.mill_id,
   ]);
 
   const executiveKpis = kpis
@@ -189,15 +189,15 @@ export default function Executive() {
   })();
 
   const heatmapDateRangeText = useMemo(() => {
-    if (!capacityParams.from_date || !capacityParams.to_date) return "";
+    if (!kpiQueryParams.from_date || !kpiQueryParams.to_date) return "";
     try {
-      const from = format(parseISO(capacityParams.from_date), "MMM d, yyyy");
-      const to = format(parseISO(capacityParams.to_date), "MMM d, yyyy");
+      const from = format(parseISO(kpiQueryParams.from_date), "MMM d, yyyy");
+      const to = format(parseISO(kpiQueryParams.to_date), "MMM d, yyyy");
       return `${from} – ${to}`;
     } catch {
-      return `${capacityParams.from_date} – ${capacityParams.to_date}`;
+      return `${kpiQueryParams.from_date} – ${kpiQueryParams.to_date}`;
     }
-  }, [capacityParams.from_date, capacityParams.to_date]);
+  }, [kpiQueryParams.from_date, kpiQueryParams.to_date]);
 
   const handleHeatmapClick = (mill: string, period: string, utilization: number) => {
     if (utilization < 95) return;
@@ -233,6 +233,12 @@ export default function Executive() {
 
       {/* SKU Forecast Trend Chart */}
       <SkuForecastTrendChart className="mb-6" />
+
+      {/* Production Planning Chart - Full Width */}
+      <ProductionPlanningTrendChart className="mb-6" />
+
+      {/* Recipe Planning Chart */}
+      <RecipePlanningChart className="mb-6" />
 
       {/* Capacity Heatmap */}
       <ChartContainer

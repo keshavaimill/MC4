@@ -59,7 +59,7 @@ export default function Planning() {
     Promise.all([
       fetchRecipePlanningKpis(kpiQueryParams),   // KPIs use future-only dates
       fetchRecipeEligibility(),
-      fetchRecipePlanning(queryParams),            // Data uses full range
+      fetchRecipePlanning(kpiQueryParams),        // Production Variance chart uses future-only dates (not a trend chart)
     ])
       .then(([kpiData, eligData, recData]) => {
         if (cancelled) return;
@@ -137,20 +137,6 @@ export default function Planning() {
     return (currAvg - baseAvg).toFixed(2);
   }, [allocations, recipeInfo, totalHours]);
 
-  // Risk score: start from backend baseline, adjust for slider deviations
-  const baselineRisk = kpis?.risk_score ?? 0;
-  const riskScore = useMemo(() => {
-    // Backend gives the baseline risk; slider changes add incremental risk
-    const sliderRiskDelta =
-      (overload / Math.max(1, totalCapacity)) * 80 +       // overload pressure
-      Math.abs(Number(costDelta)) * 1.5 +                   // cost deviation
-      Math.abs(Number(wasteDelta)) * 8;                      // waste deviation
-    // When sliders match the original, riskScore = backend baseline
-    const hasSliderChange = Object.entries(allocations).some(
-      ([id, hrs]) => Math.abs(hrs - (recipeInfo[id]?.baseHours || 0)) > 1
-    );
-    return Math.min(100, Math.round(hasSliderChange ? baselineRisk + sliderRiskDelta : baselineRisk));
-  }, [baselineRisk, overload, totalCapacity, costDelta, wasteDelta, allocations, recipeInfo]);
 
   // Build eligibility matrix
   const eligibilityMatrix = useMemo(() => {
@@ -257,94 +243,67 @@ export default function Planning() {
         </div>
       </ChartContainer>
 
-      {/* Recipe Planning Graph — hours by recipe */}
-      <ChartContainer
-        title="Recipe Planning"
-        subtitle="Scheduled hours by recipe (current allocation)"
-        action={
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => {
-              const rows = Object.entries(allocations).map(([id, hrs]) => ({
-                recipe: recipeInfo[id]?.name || id,
-                hours: Math.round(hrs),
-              }));
-              downloadCsv(rows as unknown as Record<string, unknown>[], "planning_recipe_allocation");
-            }}
-            disabled={Object.keys(allocations).length === 0}
-          >
-            <Download className="h-3.5 w-3.5" />
-            Download CSV
-          </Button>
-        }
-        className="mb-6"
-      >
-        <div className="h-[260px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={Object.entries(allocations)
-                .map(([id, hrs]) => ({ recipe: recipeInfo[id]?.name || id, hours: Math.round(hrs) }))
-                .sort((a, b) => b.hours - a.hours)}
-              layout="vertical"
-              margin={{ top: 8, right: 24, left: 100, bottom: 8 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
-              <XAxis type="number" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v)} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={{ stroke: "hsl(var(--border))" }} />
-              <YAxis type="category" dataKey="recipe" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} width={96} axisLine={false} tickLine={false} />
-              <RechartsTooltip contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", backgroundColor: "hsl(var(--card))", fontSize: 12 }} formatter={(value: number) => [`${value.toLocaleString()} hrs`, "Hours"]} />
-              <Bar dataKey="hours" name="Hours" fill="hsl(var(--chart-1))" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </ChartContainer>
-
-      <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr_320px]">
-        {/* Eligibility Matrix */}
-        <ChartContainer title="Recipe Eligibility" subtitle="Which recipes work for which flour types">
-          <div className="overflow-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr>
-                  <th className="px-2 py-2 text-left text-[11px] font-semibold text-foreground">Flour</th>
-                  {eligibilityMatrix.recipes.map((r) => (
-                    <th key={r} className="px-2 py-2 text-center text-[11px] font-semibold text-muted-foreground">{r.split(" ")[0]}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {eligibilityMatrix.flourTypes.map((ft, i) => (
-                  <tr key={ft} className={i % 2 === 0 ? "bg-card" : "bg-muted/20"}>
-                    <td className="px-2 py-2 text-xs font-medium text-foreground">{ft}</td>
+      <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+        {/* Left Column: Eligibility Matrix and Live Impact */}
+        <div className="space-y-6">
+          {/* Eligibility Matrix */}
+          <ChartContainer title="Recipe Eligibility" subtitle="Which recipes work for which flour types">
+            <div className="overflow-auto max-h-[280px]">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-foreground">Flour</th>
                     {eligibilityMatrix.recipes.map((r) => (
-                      <td key={r} className="px-2 py-2 text-center">
-                        {eligibilityMatrix.matrix[ft]?.[r] ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button type="button" className="inline-flex items-center justify-center">
-                                <Check className="h-4 w-4 text-emerald-600" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" align="center">
-                              <p className="text-xs">{ft} is eligible for {r}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        ) : (
-                          <span className="inline-flex items-center justify-center">
-                            <X className="h-4 w-4 text-muted-foreground/30" />
-                          </span>
-                        )}
-                      </td>
+                      <th key={r} className="px-2 py-1.5 text-center text-[11px] font-semibold text-muted-foreground">{r.split(" ")[0]}</th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </ChartContainer>
+                </thead>
+                <tbody>
+                  {eligibilityMatrix.flourTypes.map((ft, i) => (
+                    <tr key={ft} className={i % 2 === 0 ? "bg-card" : "bg-muted/20"}>
+                      <td className="px-2 py-1.5 text-xs font-medium text-foreground">{ft}</td>
+                      {eligibilityMatrix.recipes.map((r) => (
+                        <td key={r} className="px-2 py-1.5 text-center">
+                          {eligibilityMatrix.matrix[ft]?.[r] ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button type="button" className="inline-flex items-center justify-center">
+                                  <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" align="center">
+                                <p className="text-xs">{ft} is eligible for {r}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <span className="inline-flex items-center justify-center">
+                              <X className="h-3.5 w-3.5 text-muted-foreground/30" />
+                            </span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </ChartContainer>
 
-        {/* Sliders */}
+          {/* Live Impact Panel */}
+          <div className="rounded-xl border border-border bg-card p-4 shadow-card">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-foreground">Live Impact</h3>
+              {isCalculating && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+            </div>
+            <div className="space-y-3">
+              <ImpactMetric label="Mill Overload" value={`${Math.round(overload)} hrs`} status={overload > 0 ? "danger" : "ok"} />
+              <ImpactMetric label="Cost Delta" value={`${Number(costDelta) > 0 ? "+" : ""}${costDelta}%`} status={Math.abs(Number(costDelta)) > 5 ? "warning" : "ok"} />
+              <ImpactMetric label="Waste Delta" value={`${Number(wasteDelta) > 0 ? "+" : ""}${wasteDelta}%`} status={Math.abs(Number(wasteDelta)) > 0.3 ? "warning" : "ok"} />
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Recipe Time Allocation */}
         <ChartContainer title="Recipe Time Allocation" subtitle="Adjust hours per recipe to see real-time impact">
           <div className="space-y-6 py-2">
             {Object.entries(allocations).map(([id, hrs]) => {
@@ -430,22 +389,6 @@ export default function Planning() {
             )}
           </div>
         </ChartContainer>
-
-        {/* Impact Panel */}
-        <div className="sticky top-20 space-y-3 self-start">
-          <div className="rounded-xl border border-border bg-card p-5 shadow-card">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-foreground">Live Impact</h3>
-              {isCalculating && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-            </div>
-            <div className="space-y-4">
-              <ImpactMetric label="Mill Overload" value={`${Math.round(overload)} hrs`} status={overload > 0 ? "danger" : "ok"} />
-              <ImpactMetric label="Cost Delta" value={`${Number(costDelta) > 0 ? "+" : ""}${costDelta}%`} status={Math.abs(Number(costDelta)) > 5 ? "warning" : "ok"} />
-              <ImpactMetric label="Waste Delta" value={`${Number(wasteDelta) > 0 ? "+" : ""}${wasteDelta}%`} status={Math.abs(Number(wasteDelta)) > 0.3 ? "warning" : "ok"} />
-              <ImpactMetric label="Risk Score" value={`${riskScore}/100`} status={riskScore > 60 ? "danger" : riskScore > 30 ? "warning" : "ok"} />
-            </div>
-          </div>
-        </div>
       </div>
     </DashboardLayout>
   );

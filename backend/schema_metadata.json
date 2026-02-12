@@ -1,0 +1,837 @@
+{
+  "global_rules": {
+    "sql_dialect": "sqlite",
+    "case_insensitive_matching": "SQLite does not support ILIKE. Always use LOWER(column) LIKE '%value%'",
+    "critical_warnings": [
+      "NEVER invent or guess column names, table names, or values - use ONLY what is provided in this metadata",
+      "NEVER use columns or tables that are not explicitly listed in the schema below",
+      "If a column or table is not in the metadata, it does NOT exist - do not use it",
+      "Use case-insensitive matching for mill_id, recipe_id, sku_id, flour_type_id, wheat_type_id, and country_id unless an exact ID is provided"
+    ],
+    "anti_hallucination_rules": [
+      "ONLY use tables and columns explicitly defined in the schema below",
+      "ONLY use sample values provided in the metadata - do not invent values",
+      "If unsure about a column name, check the exact spelling in the metadata",
+      "If a user asks about data not in the schema, inform them it's not available rather than guessing"
+    ]
+  },
+  "tables": {
+    "dim_mill": {
+      "description": "Master data table for mills. Contains mill identifiers, names, locations, capacity metrics, and operational parameters including energy and water efficiency indices.",
+      "writable": false,
+      "columns": {
+        "mill_id": {
+          "description": "Unique mill identifier. Format: M1, M2, M3, etc. Primary key for joining with mill-related fact tables.",
+          "type": "string",
+          "semantic_role": "mill_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["M1", "M2", "M3"]
+        },
+        "mill_name": {
+          "description": "Name of the mill.",
+          "type": "string",
+          "example_values": ["Dammam Mill", "Medina Mill", "Al-Kharj Mill"]
+        },
+        "location": {
+          "description": "Geographic location/region of the mill.",
+          "type": "string",
+          "example_values": ["Eastern Region", "Medina", "Central Region"]
+        },
+        "wheat_capacity_tpd": {
+          "description": "Wheat processing capacity in tons per day.",
+          "type": "real",
+          "example_values": [1200, 1350, 1500]
+        },
+        "max_hours_per_day": {
+          "description": "Maximum operating hours per day.",
+          "type": "integer",
+          "example_values": [20, 22, 24]
+        },
+        "planned_days_per_month": {
+          "description": "Planned operating days per month.",
+          "type": "integer",
+          "example_values": [28, 30]
+        },
+        "max_monthly_hours": {
+          "description": "Maximum operating hours per month (calculated).",
+          "type": "integer",
+          "example_values": [560, 616, 720]
+        },
+        "is_active": {
+          "description": "Boolean flag indicating if the mill is currently active.",
+          "type": "boolean",
+          "allowed_values": [true, false]
+        },
+        "energy_efficiency_index": {
+          "description": "Energy efficiency index (0-100, higher is better). Vision 2030 metric.",
+          "type": "integer",
+          "example_values": [80, 85, 90]
+        },
+        "water_efficiency_index": {
+          "description": "Water efficiency index (0-100, higher is better). Vision 2030 metric.",
+          "type": "integer",
+          "example_values": [76, 82, 88]
+        },
+        "silo_capacity_tons": {
+          "description": "Silo storage capacity in tons.",
+          "type": "integer",
+          "example_values": [60000, 80000, 100000]
+        },
+        "feed_capacity_tpd": {
+          "description": "Feed production capacity in tons per day.",
+          "type": "integer",
+          "example_values": [0, 450, 500]
+        }
+      }
+    },
+    "dim_recipe": {
+      "description": "Master data table for recipes. Contains recipe identifiers, names, production rates, yield percentages, waste metrics, and operational parameters.",
+      "writable": false,
+      "columns": {
+        "recipe_id": {
+          "description": "Unique recipe identifier. Format: R1, R2, R3, etc. Primary key for joining with recipe-related tables.",
+          "type": "string",
+          "semantic_role": "recipe_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["R1", "R2", "R3", "R4", "R5"]
+        },
+        "recipe_name": {
+          "description": "Name/description of the recipe.",
+          "type": "string",
+          "example_values": ["Patent Blend", "80/70 Blend", "80 Straight", "Brown Recipe", "Standard Blend"]
+        },
+        "description": {
+          "description": "Detailed description of the recipe.",
+          "type": "string",
+          "example_values": ["High-quality patent flour blend", "Standard milling recipe"]
+        },
+        "milling_rate_tph": {
+          "description": "Milling rate in tons per hour for this recipe.",
+          "type": "real",
+          "example_values": [35.0, 38.0, 40.0, 42.0]
+        },
+        "avg_yield": {
+          "description": "Average yield percentage for this recipe.",
+          "type": "real",
+          "example_values": [74.0, 76.0, 78.0]
+        },
+        "avg_waste_pct": {
+          "description": "Average waste percentage for this recipe.",
+          "type": "real",
+          "example_values": [2.0, 2.5, 3.0]
+        },
+        "changeover_time_hrs": {
+          "description": "Changeover time in hours when switching to this recipe.",
+          "type": "real",
+          "example_values": [1.0, 1.5, 2.0]
+        },
+        "allowed_split_day": {
+          "description": "Boolean flag indicating if this recipe can be split across multiple days.",
+          "type": "boolean",
+          "allowed_values": [true, false]
+        },
+        "is_active": {
+          "description": "Boolean flag indicating if the recipe is currently active.",
+          "type": "boolean",
+          "allowed_values": [true, false]
+        }
+      }
+    },
+    "dim_flour_type": {
+      "description": "Master data table for flour types. Contains flour type identifiers, names, protein and ash specifications, and quality standards.",
+      "writable": false,
+      "columns": {
+        "flour_type_id": {
+          "description": "Unique flour type identifier. Format: FT001, FT002, etc. Primary key for joining with flour-related tables.",
+          "type": "string",
+          "semantic_role": "flour_type_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["FT001", "FT002", "FT003"]
+        },
+        "flour_name": {
+          "description": "Name of the flour type.",
+          "type": "string",
+          "example_values": ["Fortified Patent", "Superior", "Standard", "Brown"]
+        },
+        "protein_min": {
+          "description": "Minimum protein percentage required.",
+          "type": "real",
+          "example_values": [10.0, 12.0, 14.0]
+        },
+        "protein_max": {
+          "description": "Maximum protein percentage allowed.",
+          "type": "real",
+          "example_values": [12.0, 14.0, 16.0]
+        },
+        "ash_max": {
+          "description": "Maximum ash content percentage allowed.",
+          "type": "real",
+          "example_values": [0.45, 0.50, 0.55]
+        },
+        "quality_spec": {
+          "description": "Quality specification description.",
+          "type": "string",
+          "example_values": ["Premium white flour for retail — MC4 flagship", "Standard milling quality"]
+        },
+        "is_active": {
+          "description": "Boolean flag indicating if the flour type is currently active.",
+          "type": "boolean",
+          "allowed_values": [true, false]
+        }
+      }
+    },
+    "dim_sku": {
+      "description": "Master data table for SKUs (Stock Keeping Units). Contains SKU identifiers, names, flour type associations, pack sizes, regions, and sales channels.",
+      "writable": false,
+      "columns": {
+        "sku_id": {
+          "description": "Unique SKU identifier. Format: SKU001, SKU002, etc. Primary key for joining with SKU-related fact tables.",
+          "type": "string",
+          "semantic_role": "product_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["SKU001", "SKU002", "SKU003"]
+        },
+        "sku_name": {
+          "description": "Full name/description of the SKU.",
+          "type": "string",
+          "example_values": ["FOOM Patent Flour 45kg", "FOOM Patent Flour 10kg", "FOOM Superior Flour 45kg"]
+        },
+        "flour_type_id": {
+          "description": "Foreign key to dim_flour_type. Identifies which flour type this SKU uses.",
+          "type": "string",
+          "semantic_role": "flour_type_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["FT001", "FT002", "FT003"]
+        },
+        "pack_size_kg": {
+          "description": "Pack size in kilograms.",
+          "type": "integer",
+          "example_values": [2, 10, 45]
+        },
+        "region": {
+          "description": "Sales region for this SKU.",
+          "type": "string",
+          "example_values": ["Central", "Eastern", "Western", "Northern", "Southern"]
+        },
+        "channel": {
+          "description": "Sales channel (retail or wholesale).",
+          "type": "string",
+          "allowed_values": ["retail", "wholesale"]
+        },
+        "is_active": {
+          "description": "Boolean flag indicating if the SKU is currently active.",
+          "type": "boolean",
+          "allowed_values": [true, false]
+        }
+      }
+    },
+    "dim_wheat_type": {
+      "description": "Master data table for wheat types. Contains wheat type identifiers, names, protein and moisture percentages, cost indices, and risk scores.",
+      "writable": false,
+      "columns": {
+        "wheat_type_id": {
+          "description": "Unique wheat type identifier. Format: WT001, WT002, etc. Primary key for joining with wheat-related tables.",
+          "type": "string",
+          "semantic_role": "wheat_type_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["WT001", "WT002", "WT003"]
+        },
+        "wheat_name": {
+          "description": "Name of the wheat type.",
+          "type": "string",
+          "example_values": ["Hard Red Winter", "Soft White", "Hard Red Spring"]
+        },
+        "protein_pct": {
+          "description": "Protein percentage of this wheat type.",
+          "type": "real",
+          "example_values": [11.5, 12.0, 13.5]
+        },
+        "moisture_pct": {
+          "description": "Moisture percentage of this wheat type.",
+          "type": "real",
+          "example_values": [12.0, 13.0, 14.0]
+        },
+        "cost_index": {
+          "description": "Cost index multiplier for this wheat type (relative cost).",
+          "type": "real",
+          "example_values": [1.0, 1.05, 1.1]
+        },
+        "risk_score": {
+          "description": "Geopolitical risk score for this wheat type (higher = more risky).",
+          "type": "real",
+          "example_values": [2.0, 3.0, 4.0]
+        },
+        "is_active": {
+          "description": "Boolean flag indicating if the wheat type is currently active.",
+          "type": "boolean",
+          "allowed_values": [true, false]
+        }
+      }
+    },
+    "dim_country": {
+      "description": "Master data table for countries. Contains country identifiers, names, regions, and risk metrics for sourcing and logistics.",
+      "writable": false,
+      "columns": {
+        "country_id": {
+          "description": "Unique country identifier. Format: C001, C002, etc. Primary key for joining with country-related tables.",
+          "type": "string",
+          "semantic_role": "country_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["C001", "C002", "C003"]
+        },
+        "country_name": {
+          "description": "Name of the country.",
+          "type": "string",
+          "example_values": ["Saudi Arabia", "Egypt", "Pakistan", "Turkey", "Russia"]
+        },
+        "region": {
+          "description": "Geographic region classification.",
+          "type": "string",
+          "example_values": ["Middle East", "North Africa", "South Asia", "Eastern Europe"]
+        },
+        "geopolitical_risk": {
+          "description": "Geopolitical risk score (0-10, higher = more risky).",
+          "type": "real",
+          "example_values": [2.0, 3.0, 5.0, 7.0]
+        },
+        "logistics_risk": {
+          "description": "Logistics risk score (0-10, higher = more risky).",
+          "type": "real",
+          "example_values": [1.0, 2.0, 4.0, 6.0]
+        },
+        "is_active": {
+          "description": "Boolean flag indicating if the country is currently active for sourcing.",
+          "type": "boolean",
+          "allowed_values": [true, false]
+        }
+      }
+    },
+    "map_flour_recipe": {
+      "description": "Mapping table showing which recipes can produce which flour types, including yield percentages and default allocation percentages.",
+      "writable": false,
+      "columns": {
+        "flour_type_id": {
+          "description": "Foreign key to dim_flour_type.",
+          "type": "string",
+          "semantic_role": "flour_type_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["FT001", "FT002", "FT003"]
+        },
+        "recipe_id": {
+          "description": "Foreign key to dim_recipe.",
+          "type": "string",
+          "semantic_role": "recipe_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["R1", "R2", "R3"]
+        },
+        "yield_pct": {
+          "description": "Yield percentage when this recipe produces this flour type.",
+          "type": "real",
+          "example_values": [74.0, 76.0, 78.0]
+        },
+        "quality_ok": {
+          "description": "Boolean flag indicating if the quality meets specifications.",
+          "type": "boolean",
+          "allowed_values": [true, false]
+        },
+        "default_allocation_pct": {
+          "description": "Default allocation percentage for this recipe-flour combination (0.0 to 1.0).",
+          "type": "real",
+          "example_values": [0.4, 0.5, 0.6, 0.7, 1.0]
+        }
+      }
+    },
+    "map_recipe_mill": {
+      "description": "Mapping table showing which mills can run which recipes, including maximum production rates.",
+      "writable": false,
+      "columns": {
+        "recipe_id": {
+          "description": "Foreign key to dim_recipe.",
+          "type": "string",
+          "semantic_role": "recipe_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["R1", "R2", "R3"]
+        },
+        "mill_id": {
+          "description": "Foreign key to dim_mill.",
+          "type": "string",
+          "semantic_role": "mill_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["M1", "M2", "M3"]
+        },
+        "max_rate_tph": {
+          "description": "Maximum production rate in tons per hour for this recipe at this mill.",
+          "type": "real",
+          "example_values": [35.0, 38.0, 40.0, 42.0]
+        },
+        "allowed": {
+          "description": "Boolean flag indicating if this recipe is allowed at this mill.",
+          "type": "boolean",
+          "allowed_values": [true, false]
+        }
+      }
+    },
+    "map_sku_flour": {
+      "description": "Mapping table showing which flour types are used by which SKUs, including pack size information.",
+      "writable": false,
+      "columns": {
+        "sku_id": {
+          "description": "Foreign key to dim_sku.",
+          "type": "string",
+          "semantic_role": "product_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["SKU001", "SKU002", "SKU003"]
+        },
+        "flour_type_id": {
+          "description": "Foreign key to dim_flour_type.",
+          "type": "string",
+          "semantic_role": "flour_type_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["FT001", "FT002", "FT003"]
+        },
+        "pack_size_kg": {
+          "description": "Pack size in kilograms for this SKU-flour combination.",
+          "type": "integer",
+          "example_values": [2, 10, 45]
+        }
+      }
+    },
+    "map_recipe_wheat": {
+      "description": "Mapping table showing which wheat types are used by which recipes, including usage ratios and waste impact.",
+      "writable": false,
+      "columns": {
+        "recipe_id": {
+          "description": "Foreign key to dim_recipe.",
+          "type": "string",
+          "semantic_role": "recipe_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["R1", "R2", "R3"]
+        },
+        "wheat_type_id": {
+          "description": "Foreign key to dim_wheat_type.",
+          "type": "string",
+          "semantic_role": "wheat_type_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["WT001", "WT002", "WT003"]
+        },
+        "usage_ratio": {
+          "description": "Usage ratio of this wheat type in this recipe (0.0 to 1.0).",
+          "type": "real",
+          "example_values": [0.5, 0.6, 0.7, 0.8, 1.0]
+        },
+        "waste_impact_pct": {
+          "description": "Waste impact percentage when using this wheat type in this recipe.",
+          "type": "real",
+          "example_values": [1.5, 2.0, 2.5, 3.0]
+        }
+      }
+    },
+    "map_wheat_country": {
+      "description": "Mapping table showing which countries supply which wheat types, including supply percentages and cost multipliers.",
+      "writable": false,
+      "columns": {
+        "wheat_type_id": {
+          "description": "Foreign key to dim_wheat_type.",
+          "type": "string",
+          "semantic_role": "wheat_type_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["WT001", "WT002", "WT003"]
+        },
+        "country_id": {
+          "description": "Foreign key to dim_country.",
+          "type": "string",
+          "semantic_role": "country_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["C001", "C002", "C003"]
+        },
+        "supply_pct": {
+          "description": "Supply percentage from this country for this wheat type (0.0 to 1.0).",
+          "type": "real",
+          "example_values": [0.3, 0.4, 0.5, 0.6]
+        },
+        "cost_multiplier": {
+          "description": "Cost multiplier for sourcing this wheat type from this country.",
+          "type": "real",
+          "example_values": [1.0, 1.05, 1.1, 1.15]
+        }
+      }
+    },
+    "fact_sku_forecast": {
+      "description": "Fact table containing SKU demand forecasts (both historical actuals and future forecasts). Includes demand in tons and units, confidence percentages, seasonality indices, and scenario identifiers.",
+      "writable": false,
+      "columns": {
+        "sku_id": {
+          "description": "Foreign key to dim_sku. Identifies which SKU this forecast is for.",
+          "type": "string",
+          "semantic_role": "product_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["SKU001", "SKU002", "SKU003"]
+        },
+        "date": {
+          "description": "Date of the forecast/actual. Format: YYYY-MM-DD. Historical data (up to 2026-02-14) has confidence_pct=1.0, future forecasts have confidence_pct < 1.0.",
+          "type": "date",
+          "semantic_role": "forecast_date",
+          "example_values": ["2020-01-01", "2026-02-14", "2026-02-15"]
+        },
+        "demand_tons": {
+          "description": "Demand in tons for this SKU on this date. For historical data, this is actual demand. For future dates, this is forecasted demand.",
+          "type": "real",
+          "aggregation_rule": "SUM",
+          "semantic_role": "demand_metric"
+        },
+        "demand_units": {
+          "description": "Demand in units (packages) for this SKU on this date. Calculated from demand_tons and pack_size_kg.",
+          "type": "real",
+          "aggregation_rule": "SUM",
+          "semantic_role": "demand_metric"
+        },
+        "confidence_pct": {
+          "description": "Confidence percentage of the forecast (0.0 to 1.0). Historical actuals have confidence_pct=1.0, future forecasts typically have confidence_pct between 0.80 and 0.95.",
+          "type": "real",
+          "semantic_role": "forecast_confidence",
+          "example_values": [0.85, 0.89, 0.9, 1.0]
+        },
+        "seasonality_index": {
+          "description": "Seasonality index multiplier for this date (typically around 1.0, higher during peak seasons).",
+          "type": "real",
+          "example_values": [0.9, 1.0, 1.1, 1.2]
+        },
+        "scenario_id": {
+          "description": "Scenario identifier (e.g., 'base', 'optimistic', 'pessimistic').",
+          "type": "string",
+          "example_values": ["base"]
+        }
+      }
+    },
+    "fact_bulk_flour_requirement": {
+      "description": "Fact table containing bulk flour requirements derived from SKU forecasts. Shows required tons of each flour type by date and scenario.",
+      "writable": false,
+      "columns": {
+        "date": {
+          "description": "Date of the requirement. Format: YYYY-MM-DD.",
+          "type": "date",
+          "semantic_role": "requirement_date",
+          "example_values": ["2020-01-01", "2026-02-15"]
+        },
+        "flour_type_id": {
+          "description": "Foreign key to dim_flour_type. Identifies which flour type is required.",
+          "type": "string",
+          "semantic_role": "flour_type_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["FT001", "FT002", "FT003"]
+        },
+        "required_tons": {
+          "description": "Required tons of this flour type on this date.",
+          "type": "real",
+          "aggregation_rule": "SUM",
+          "semantic_role": "requirement_metric"
+        },
+        "scenario_id": {
+          "description": "Scenario identifier (e.g., 'base', 'optimistic', 'pessimistic').",
+          "type": "string",
+          "example_values": ["base"]
+        }
+      }
+    },
+    "fact_recipe_demand": {
+      "description": "Fact table containing recipe demand derived from bulk flour requirements. Shows required tons and hours for each recipe by date and scenario.",
+      "writable": false,
+      "columns": {
+        "date": {
+          "description": "Date of the recipe demand. Format: YYYY-MM-DD.",
+          "type": "date",
+          "semantic_role": "demand_date",
+          "example_values": ["2020-01-01", "2026-02-15"]
+        },
+        "recipe_id": {
+          "description": "Foreign key to dim_recipe. Identifies which recipe is required.",
+          "type": "string",
+          "semantic_role": "recipe_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["R1", "R2", "R3"]
+        },
+        "required_tons": {
+          "description": "Required tons of this recipe on this date.",
+          "type": "real",
+          "aggregation_rule": "SUM",
+          "semantic_role": "demand_metric"
+        },
+        "required_hours": {
+          "description": "Required production hours for this recipe on this date (calculated from required_tons and milling_rate_tph).",
+          "type": "real",
+          "aggregation_rule": "SUM",
+          "semantic_role": "time_metric"
+        },
+        "scenario_id": {
+          "description": "Scenario identifier (e.g., 'base', 'optimistic', 'pessimistic').",
+          "type": "string",
+          "example_values": ["base"]
+        }
+      }
+    },
+    "fact_mill_recipe_plan": {
+      "description": "Fact table containing mill recipe planning data. Shows planned hours, tons, and days for each mill-recipe combination by period, including utilization percentages.",
+      "writable": false,
+      "columns": {
+        "mill_id": {
+          "description": "Foreign key to dim_mill. Identifies which mill this plan is for.",
+          "type": "string",
+          "semantic_role": "mill_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["M1", "M2", "M3"]
+        },
+        "recipe_id": {
+          "description": "Foreign key to dim_recipe. Identifies which recipe is planned.",
+          "type": "string",
+          "semantic_role": "recipe_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["R1", "R2", "R3"]
+        },
+        "period": {
+          "description": "Period identifier (typically a date or month). Format: YYYY-MM-DD or YYYY-MM.",
+          "type": "string",
+          "semantic_role": "period_identifier",
+          "example_values": ["2020-01-01", "2020-01"]
+        },
+        "planned_hours": {
+          "description": "Planned production hours for this mill-recipe combination in this period.",
+          "type": "real",
+          "aggregation_rule": "SUM",
+          "semantic_role": "time_metric"
+        },
+        "planned_tons": {
+          "description": "Planned production tons for this mill-recipe combination in this period.",
+          "type": "real",
+          "aggregation_rule": "SUM",
+          "semantic_role": "production_metric"
+        },
+        "planned_days": {
+          "description": "Planned production days for this mill-recipe combination in this period.",
+          "type": "integer",
+          "example_values": [28, 30]
+        },
+        "available_hours": {
+          "description": "Available hours for production in this period.",
+          "type": "real",
+          "semantic_role": "capacity_metric"
+        },
+        "utilization_pct": {
+          "description": "Utilization percentage (planned_hours / available_hours * 100).",
+          "type": "real",
+          "semantic_role": "utilization_metric",
+          "example_values": [25.95, 30.0, 35.0]
+        },
+        "scenario_id": {
+          "description": "Scenario identifier (e.g., 'base', 'optimistic', 'pessimistic').",
+          "type": "string",
+          "example_values": ["base"]
+        }
+      }
+    },
+    "fact_mill_capacity": {
+      "description": "Fact table containing daily mill capacity data. Shows available hours for each mill by date.",
+      "writable": false,
+      "columns": {
+        "mill_id": {
+          "description": "Foreign key to dim_mill. Identifies which mill this capacity data is for.",
+          "type": "string",
+          "semantic_role": "mill_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["M1", "M2", "M3"]
+        },
+        "date": {
+          "description": "Date of the capacity record. Format: YYYY-MM-DD.",
+          "type": "date",
+          "semantic_role": "capacity_date",
+          "example_values": ["2020-01-01", "2026-02-15"]
+        },
+        "available_hours": {
+          "description": "Available hours for production on this date (may be reduced due to maintenance).",
+          "type": "real",
+          "aggregation_rule": "SUM",
+          "semantic_role": "capacity_metric"
+        }
+      }
+    },
+    "fact_mill_schedule_daily": {
+      "description": "Fact table containing daily mill production schedule. Shows which recipes were run on which mills, with planned vs actual hours, status, changeover time, and tons produced.",
+      "writable": false,
+      "columns": {
+        "mill_id": {
+          "description": "Foreign key to dim_mill. Identifies which mill this schedule is for.",
+          "type": "string",
+          "semantic_role": "mill_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["M1", "M2", "M3"]
+        },
+        "date": {
+          "description": "Date of the schedule. Format: YYYY-MM-DD.",
+          "type": "date",
+          "semantic_role": "schedule_date",
+          "example_values": ["2020-01-01", "2026-02-15"]
+        },
+        "recipe_id": {
+          "description": "Foreign key to dim_recipe. Identifies which recipe was run.",
+          "type": "string",
+          "semantic_role": "recipe_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["R1", "R2", "R3"]
+        },
+        "planned_hours": {
+          "description": "Planned production hours for this mill-recipe combination on this date.",
+          "type": "real",
+          "aggregation_rule": "SUM",
+          "semantic_role": "time_metric"
+        },
+        "actual_hours": {
+          "description": "Actual production hours for this mill-recipe combination on this date.",
+          "type": "real",
+          "aggregation_rule": "SUM",
+          "semantic_role": "time_metric"
+        },
+        "status": {
+          "description": "Status of the production run (e.g., 'completed', 'in_progress', 'scheduled').",
+          "type": "string",
+          "example_values": ["completed", "in_progress", "scheduled"]
+        },
+        "changeover_hours": {
+          "description": "Changeover time in hours between recipes.",
+          "type": "real",
+          "aggregation_rule": "SUM",
+          "semantic_role": "time_metric"
+        },
+        "tons_produced": {
+          "description": "Tons of product produced in this run.",
+          "type": "real",
+          "aggregation_rule": "SUM",
+          "semantic_role": "production_metric"
+        }
+      }
+    },
+    "fact_wheat_requirement": {
+      "description": "Fact table containing wheat requirements derived from recipe demand. Shows required tons and average cost for each wheat type by period and scenario.",
+      "writable": false,
+      "columns": {
+        "wheat_type_id": {
+          "description": "Foreign key to dim_wheat_type. Identifies which wheat type is required.",
+          "type": "string",
+          "semantic_role": "wheat_type_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["WT001", "WT002", "WT003"]
+        },
+        "period": {
+          "description": "Period identifier (typically a date or month). Format: YYYY-MM-DD or YYYY-MM.",
+          "type": "string",
+          "semantic_role": "period_identifier",
+          "example_values": ["2020-01-01", "2020-01"]
+        },
+        "required_tons": {
+          "description": "Required tons of this wheat type in this period.",
+          "type": "real",
+          "aggregation_rule": "SUM",
+          "semantic_role": "requirement_metric"
+        },
+        "avg_cost": {
+          "description": "Average cost per ton for this wheat type in this period (in SAR).",
+          "type": "real",
+          "semantic_role": "cost_metric",
+          "example_values": [900.0, 945.0, 1000.0]
+        },
+        "scenario_id": {
+          "description": "Scenario identifier (e.g., 'base', 'optimistic', 'pessimistic').",
+          "type": "string",
+          "example_values": ["base"]
+        }
+      }
+    },
+    "fact_waste_metrics": {
+      "description": "Fact table containing waste metrics for mill-recipe combinations by period. Includes waste percentages, energy consumption per ton, and water consumption per ton (Vision 2030 metrics).",
+      "writable": false,
+      "columns": {
+        "mill_id": {
+          "description": "Foreign key to dim_mill. Identifies which mill this waste metric is for.",
+          "type": "string",
+          "semantic_role": "mill_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["M1", "M2", "M3"]
+        },
+        "recipe_id": {
+          "description": "Foreign key to dim_recipe. Identifies which recipe this waste metric is for.",
+          "type": "string",
+          "semantic_role": "recipe_identifier",
+          "matching_rule": "Use exact match",
+          "example_values": ["R1", "R2", "R3"]
+        },
+        "period": {
+          "description": "Period identifier (typically a date or month). Format: YYYY-MM-DD or YYYY-MM.",
+          "type": "string",
+          "semantic_role": "period_identifier",
+          "example_values": ["2020-01-01", "2020-01"]
+        },
+        "waste_pct": {
+          "description": "Waste percentage for this mill-recipe combination in this period.",
+          "type": "real",
+          "semantic_role": "waste_metric",
+          "example_values": [2.0, 2.03, 2.5, 3.0]
+        },
+        "energy_per_ton": {
+          "description": "Energy consumption per ton produced (kWh/ton). Vision 2030 metric.",
+          "type": "real",
+          "semantic_role": "energy_metric",
+          "example_values": [65.0, 67.75, 70.0]
+        },
+        "water_per_ton": {
+          "description": "Water consumption per ton produced (m³/ton). Vision 2030 metric.",
+          "type": "real",
+          "semantic_role": "water_metric",
+          "example_values": [0.7, 0.75, 0.8]
+        }
+      }
+    },
+    "fact_kpi_snapshot": {
+      "description": "Fact table containing KPI snapshots for fast UI loading. Includes KPI names, periods, values, deltas, drivers, status, and scenario identifiers.",
+      "writable": false,
+      "columns": {
+        "kpi_name": {
+          "description": "Name of the KPI (e.g., 'total_demand_tons', 'recipe_time_utilization', 'capacity_violations', 'avg_cost_per_ton', 'waste_rate', 'vision_2030_index').",
+          "type": "string",
+          "semantic_role": "kpi_identifier",
+          "matching_rule": "Use case-insensitive partial match",
+          "sql_rule_sqlite": "LOWER(kpi_name) LIKE '%value%'",
+          "example_values": ["total_demand_tons", "recipe_time_utilization", "capacity_violations", "avg_cost_per_ton", "waste_rate", "vision_2030_index"]
+        },
+        "period": {
+          "description": "Period identifier (typically a date or month). Format: YYYY-MM-DD or YYYY-MM.",
+          "type": "string",
+          "semantic_role": "period_identifier",
+          "example_values": ["2020-01-01", "2020-01"]
+        },
+        "value": {
+          "description": "KPI value for this period.",
+          "type": "real",
+          "semantic_role": "kpi_value"
+        },
+        "delta": {
+          "description": "Change in KPI value from previous period.",
+          "type": "real",
+          "semantic_role": "kpi_delta"
+        },
+        "driver": {
+          "description": "Primary driver of the KPI value (e.g., 'SKU forecast', 'Recipe demand', 'Mill capacity').",
+          "type": "string",
+          "example_values": ["SKU forecast", "Recipe demand", "Mill capacity"]
+        },
+        "status": {
+          "description": "Status indicator (e.g., 'positive', 'negative', 'neutral', 'warning').",
+          "type": "string",
+          "example_values": ["positive", "negative", "neutral", "warning"]
+        },
+        "scenario_id": {
+          "description": "Scenario identifier (e.g., 'base', 'optimistic', 'pessimistic').",
+          "type": "string",
+          "example_values": ["base"]
+        }
+      }
+    }
+  }
+}

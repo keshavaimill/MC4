@@ -10,6 +10,7 @@ import { Search, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/PageLoader";
 import { useToast } from "@/components/ui/use-toast";
+import { parseISO, format } from "date-fns";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, Cell,
@@ -23,23 +24,47 @@ interface SkuRow {
   forecast_tons: number;
 }
 
+// Helper function to determine horizon for Recipe Demand chart based on period filter
+function recipeDemandHorizonForFilter(periodFilter: string): "day" | "week" | "month" | "year" {
+  switch (periodFilter) {
+    case "7days":
+    case "15days":
+    case "30days":
+      return "day";
+    case "quarter":
+    case "year":
+      return "month";
+    default:
+      return "month";
+  }
+}
+
 export default function Demand() {
   const [search, setSearch] = useState("");
   const { toast } = useToast();
-  const { queryParams, kpiQueryParams } = useFilters();
+  const { queryParams, kpiQueryParams, periodFilter } = useFilters();
 
   const [kpis, setKpis] = useState<DemandRecipeKpis | null>(null);
   const [skuData, setSkuData] = useState<SkuRow[]>([]);
   const [recipeChart, setRecipeChart] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Recipe Demand chart params: use day horizon for 7/15/30 days filters
+  const recipeDemandParams = useMemo(
+    () => ({
+      ...kpiQueryParams,
+      horizon: recipeDemandHorizonForFilter(periodFilter),
+    }),
+    [kpiQueryParams.from_date, kpiQueryParams.to_date, kpiQueryParams.scenario, periodFilter]
+  );
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     Promise.all([
       fetchDemandRecipeKpis(kpiQueryParams),    // KPIs use future-only dates
-      fetchSkuForecast(queryParams),             // Data tables use full range
-      fetchRecipePlanning(queryParams),           // Charts use full range
+      fetchSkuForecast(queryParams),             // SKU table uses full range (for display)
+      fetchRecipePlanning(recipeDemandParams),  // Recipe Demand chart: uses day horizon for 7/15/30 days
     ])
       .then(([kpiData, skuRes, recipeRes]) => {
         if (cancelled) return;
@@ -139,42 +164,73 @@ export default function Demand() {
       })()
     : [];
 
-  // Waterfall: normalize to 0–100 (first = 100%), then deltas. Short labels for X-axis.
+  // Waterfall data: prepare for meaningful waterfall visualization
+  // Shows cumulative flow: Start → Drop → Intermediate → Drop → Final
   const waterfallData = (() => {
-    if (translationFunnel.length < 2) return [];
-    const maxVal = Math.max(...translationFunnel.map((s) => s.value), 1);
-    const normalized = translationFunnel.map((s) => ({
-      name: s.stage,
-      rawValue: s.value,
-      pct: Math.min(100, (s.value / maxVal) * 100),
-    }));
-    const labels = { dropBulk: "To Bulk", dropRecipe: "To Recipe", bulk: "Bulk Flour", recipe: "Recipe Hrs" };
-    const out: { name: string; value: number; rawValue: number; type: "start" | "drop" | "subtotal" | "end" }[] = [];
-    let running = 100;
-    for (let i = 0; i < normalized.length; i++) {
-      const pct = normalized[i].pct;
-      const raw = normalized[i].rawValue;
-      if (i === 0) {
-        out.push({ name: "SKU Forecast", value: 100, rawValue: raw, type: "start" });
-        running = 100;
-      } else {
-        const drop = running - pct;
-        out.push({
-          name: i === 1 ? labels.dropBulk : labels.dropRecipe,
-          value: -drop,
-          rawValue: raw,
-          type: "drop",
-        });
-        running = pct;
-        out.push({
-          name: i === 1 ? labels.bulk : labels.recipe,
-          value: pct,
-          rawValue: raw,
-          type: i === normalized.length - 1 ? "end" : "subtotal",
-        });
-      }
-    }
-    return out;
+    if (translationFunnel.length < 3) return [];
+    
+    const [sku, flour, recipe] = translationFunnel;
+    
+    // Normalize to percentage scale (SKU = 100%)
+    const maxVal = sku.value;
+    const skuPct = 100;
+    const flourPct = (flour.value / maxVal) * 100;
+    const recipePct = (recipe.value / maxVal) * 100;
+    
+    // Calculate drops
+    const dropToFlour = skuPct - flourPct;
+    const dropToRecipe = flourPct - recipePct;
+    
+    // Build waterfall with cumulative positioning
+    const data = [
+      {
+        name: "SKU\nForecast",
+        value: skuPct,
+        start: 0,
+        end: skuPct,
+        rawValue: sku.value,
+        type: "start",
+        color: "hsl(var(--chart-1))",
+      },
+      {
+        name: "To Bulk\nFlour",
+        value: -dropToFlour,
+        start: skuPct,
+        end: flourPct,
+        rawValue: sku.value - flour.value,
+        type: "drop",
+        color: "hsl(var(--muted-foreground) / 0.35)",
+      },
+      {
+        name: "Bulk\nFlour",
+        value: flourPct,
+        start: 0,
+        end: flourPct,
+        rawValue: flour.value,
+        type: "subtotal",
+        color: "hsl(var(--chart-2))",
+      },
+      {
+        name: "To Recipe\nHours",
+        value: -dropToRecipe,
+        start: flourPct,
+        end: recipePct,
+        rawValue: flour.value - recipe.value,
+        type: "drop",
+        color: "hsl(var(--muted-foreground) / 0.35)",
+      },
+      {
+        name: "Recipe\nHours",
+        value: recipePct,
+        start: 0,
+        end: recipePct,
+        rawValue: recipe.value,
+        type: "end",
+        color: "hsl(var(--chart-3))",
+      },
+    ];
+    
+    return data;
   })();
 
   // Build recipe demand chart: group by period, each recipe as a line
@@ -284,34 +340,31 @@ export default function Demand() {
         </ChartContainer>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-        {/* Translation Funnel – Waterfall */}
+        {/* Translation Funnel – Waterfall Chart */}
         <ChartContainer title="Translation Funnel" subtitle="Volume flow: SKU → Flour → Recipe (waterfall)">
           {waterfallData.length > 0 ? (
-            <div className="w-full" style={{ height: 260 }}>
+            <div className="w-full" style={{ height: 280 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={waterfallData}
-                  margin={{ top: 16, right: 20, left: 12, bottom: 32 }}
-                  barCategoryGap="8%"
+                  margin={{ top: 16, right: 20, left: 12, bottom: 50 }}
+                  barCategoryGap="12%"
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                   <XAxis
                     dataKey="name"
-                    tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                    tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
                     axisLine={{ stroke: "hsl(var(--border))" }}
                     tickLine={{ stroke: "hsl(var(--border))" }}
                     interval={0}
-                    angle={-25}
-                    textAnchor="end"
-                    height={44}
+                    height={60}
                   />
                   <YAxis
                     tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                     axisLine={{ stroke: "hsl(var(--border))" }}
                     tickLine={{ stroke: "hsl(var(--border))" }}
                     tickFormatter={(v) => `${Math.round(v)}%`}
-                    domain={[-90, 110]}
-                    ticks={[-80, -60, -40, -20, 0, 20, 40, 60, 80, 100]}
+                    domain={[0, 110]}
                     width={42}
                   />
                   <Tooltip
@@ -323,32 +376,64 @@ export default function Demand() {
                       padding: "8px 12px",
                       boxShadow: "0 4px 16px hsl(var(--foreground) / 0.06)",
                     }}
-                    formatter={(value: number, _name: string, props: { payload: { rawValue: number; type: string } }) => [
-                      props.payload.type === "drop"
-                        ? `${Math.abs(Number(value)).toFixed(1)}% step-down`
-                        : `${props.payload.rawValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} (${Number(value).toFixed(1)}%)`,
-                      "",
-                    ]}
-                    labelFormatter={(label) => label}
+                    formatter={(value: number, _name: string, props: { payload: { rawValue: number; type: string; name: string } }) => {
+                      if (props.payload.type === "drop") {
+                        return [
+                          `${Math.abs(Number(value)).toFixed(1)}% drop`,
+                          `Loss: ${props.payload.rawValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+                        ];
+                      }
+                      return [
+                        `${props.payload.rawValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} (${Number(value).toFixed(1)}%)`,
+                        props.payload.name.replace(/\n/g, ' '),
+                      ];
+                    }}
+                    labelFormatter={(label) => label.replace(/\n/g, ' ')}
                   />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={56}>
                     {waterfallData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
-                        fill={
-                          entry.type === "drop"
-                            ? "hsl(var(--muted-foreground) / 0.35)"
-                            : "hsl(var(--chart-1))"
-                        }
+                        fill={entry.color}
                       />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
+              
+              {/* Summary */}
+              {translationFunnel.length >= 3 && (
+                <div className="mt-3 pt-3 border-t border-border/60">
+                  <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[10px]">
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-2.5 w-5 rounded bg-[hsl(var(--chart-1))]" />
+                      <span className="text-muted-foreground">SKU Forecast</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-2.5 w-5 rounded bg-[hsl(var(--chart-2))]" />
+                      <span className="text-muted-foreground">Bulk Flour</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-2.5 w-5 rounded bg-[hsl(var(--chart-3))]" />
+                      <span className="text-muted-foreground">Recipe Hours</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-2.5 w-5 rounded bg-[hsl(var(--muted-foreground)/0.35)]" />
+                      <span className="text-muted-foreground">Loss</span>
+                    </div>
+                  </div>
+                  <div className="mt-2.5 text-center">
+                    <p className="text-[9px] font-semibold text-muted-foreground mb-0.5">Overall Conversion</p>
+                    <p className="text-sm font-bold text-foreground">
+                      {translationFunnel[translationFunnel.length - 1].conversionPct.toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 py-10 text-center">
-              <p className="text-sm font-medium text-foreground">No funnel data</p>
+              <p className="text-sm font-medium text-foreground">No waterfall data</p>
               <p className="text-xs text-muted-foreground mt-1">KPI data is required for the waterfall</p>
             </div>
           )}
@@ -368,6 +453,35 @@ export default function Demand() {
                     tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                     axisLine={{ stroke: 'hsl(var(--border))' }}
                     tickLine={{ stroke: 'hsl(var(--border))' }}
+                    tickFormatter={(value: string) => {
+                      // Format daily data (YYYY-MM-DD) for 7/15/30 days filters
+                      if (recipeDemandParams.horizon === "day" && value.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                        try {
+                          const date = parseISO(value);
+                          return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                        } catch {
+                          return value;
+                        }
+                      }
+                      // Format weekly data (YYYY-WW)
+                      if (value.includes("W")) {
+                        const parts = value.split("-W");
+                        if (parts.length === 2) {
+                          return `W${parseInt(parts[1])}`;
+                        }
+                      }
+                      // Format monthly data (YYYY-MM)
+                      if (value.match(/^\d{4}-\d{2}$/)) {
+                        try {
+                          const [year, month] = value.split("-");
+                          const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+                          return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+                        } catch {
+                          return value;
+                        }
+                      }
+                      return value;
+                    }}
                   />
                   <YAxis 
                     tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}

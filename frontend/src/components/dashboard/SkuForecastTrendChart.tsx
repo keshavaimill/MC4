@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { ChartContainer } from "./ChartContainer";
 import { fetchSkuForecast } from "@/lib/api";
 import {
@@ -8,6 +8,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useFilters } from "@/context/FilterContext";
 import { format, subMonths, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from "date-fns";
+import { cn } from "@/lib/utils";
 
 type PeriodType = "week" | "month" | "quarter" | "year";
 
@@ -35,69 +36,110 @@ function globalToLocal(gf: string): PeriodType {
   }
 }
 
-const MILL_OPTIONS = ["M1", "M2", "M3"];
-
 export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps) {
-  const { queryParams, periodFilter } = useFilters();
+  const { queryParams, periodFilter, fromDate, toDate } = useFilters();
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSku, setSelectedSku] = useState<string>("all");
   const [selectedFlourType, setSelectedFlourType] = useState<string>("all");
-  const [selectedMill, setSelectedMill] = useState<string>("all");
-  const [periodType, setPeriodType] = useState<PeriodType>(() => globalToLocal(periodFilter));
+  
+  // Historical data ends at 2026-02-14 (February 14, 2026)
+  // Forecasted data starts from 2026-02-15 (February 15, 2026) onwards
+  const historicalEndDate = new Date("2026-02-14");
+  
+  // Determine period type based on filter and date range span
+  const calculatedPeriodType = useMemo((): PeriodType => {
+    if (periodFilter === "custom" && fromDate && toDate) {
+      const from = parseISO(fromDate);
+      const to = parseISO(toDate);
+      const daysDiff = Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Determine granularity based on date range span
+      if (daysDiff <= 14) return "week";
+      if (daysDiff <= 90) return "month";
+      if (daysDiff <= 365) return "quarter";
+      return "year";
+    }
+    return globalToLocal(periodFilter);
+  }, [periodFilter, fromDate, toDate]);
+  
+  const [periodType, setPeriodType] = useState<PeriodType>(calculatedPeriodType);
 
   // Sync local period with global filter when it changes
   useEffect(() => {
-    setPeriodType(globalToLocal(periodFilter));
-  }, [periodFilter]);
-  
-  // Historical data ends at 2026-02-10
-  const historicalEndDate = new Date("2026-02-10");
+    setPeriodType(calculatedPeriodType);
+  }, [calculatedPeriodType]);
   
   const getDateRange = (type: PeriodType) => {
     let historicalStart: Date;
     let historicalEnd: Date;
     let forecastStart: Date;
     let forecastEnd: Date;
+    let isCustom = false;
     
-    switch (type) {
-      case "week":
-        // Last 7 days (2026-02-04 to 2026-02-10) + Next 7 days (2026-02-11 to 2026-02-17)
-        historicalStart = new Date(historicalEndDate);
-        historicalStart.setDate(historicalStart.getDate() - 6); // Last 7 days including end date
-        historicalEnd = new Date(historicalEndDate); // Feb 10, 2026
-        forecastStart = new Date(historicalEndDate);
-        forecastStart.setDate(forecastStart.getDate() + 1); // Feb 11, 2026
-        forecastEnd = new Date(forecastStart);
-        forecastEnd.setDate(forecastEnd.getDate() + 6); // Next 7 days
-        break;
-        
-      case "month":
-        // Last 30 days (Jan 12 - Feb 10, 2026) + Next 30 days (Feb 11 - Mar 12, 2026)
-        historicalStart = new Date(historicalEndDate);
-        historicalStart.setDate(historicalStart.getDate() - 29); // Last 30 days including end date
-        historicalEnd = new Date(historicalEndDate); // Feb 10, 2026
-        forecastStart = new Date(historicalEndDate);
-        forecastStart.setDate(forecastStart.getDate() + 1); // Feb 11, 2026
-        forecastEnd = new Date(forecastStart);
-        forecastEnd.setDate(forecastEnd.getDate() + 29); // Next 30 days
-        break;
-        
-      case "quarter":
-        // Last 3 months (Nov 2025 - Jan 2026) + Next 3 months (Feb 2026 - Apr 2026)
-        historicalStart = startOfMonth(subMonths(historicalEndDate, 2)); // Nov 2025 start
-        historicalEnd = new Date(historicalEndDate); // Feb 10, 2026
-        forecastStart = startOfMonth(historicalEndDate); // Feb 2026 start
-        forecastEnd = endOfMonth(addMonths(historicalEndDate, 2)); // Apr 2026 end
-        break;
-        
-      case "year":
-        // Last 12 months (Feb 2025 - Jan 2026) + Next 12 months (Feb 2026 - Jan 2027)
-        historicalStart = startOfMonth(subMonths(historicalEndDate, 11)); // Feb 2025 start
-        historicalEnd = new Date(historicalEndDate); // Feb 10, 2026
-        forecastStart = startOfMonth(historicalEndDate); // Feb 2026 start
-        forecastEnd = endOfMonth(addMonths(historicalEndDate, 11)); // Jan 2027 end
-        break;
+    // Handle custom date range - use the range directly without splitting
+    if (periodFilter === "custom" && fromDate && toDate) {
+      isCustom = true;
+      const from = parseISO(fromDate);
+      const to = parseISO(toDate);
+      // For custom ranges, use the same range for both (we'll fetch once)
+      historicalStart = from;
+      historicalEnd = to;
+      forecastStart = from;
+      forecastEnd = to;
+    } else {
+      // Use preset ranges with historical/forecast split
+      switch (type) {
+        case "week":
+          // Last 7 days (2026-02-08 to 2026-02-14) + Next 7 days (2026-02-15 to 2026-02-21)
+          historicalStart = new Date(historicalEndDate);
+          historicalStart.setDate(historicalStart.getDate() - 6); // Last 7 days including end date
+          historicalEnd = new Date(historicalEndDate); // Feb 14, 2026
+          forecastStart = new Date(historicalEndDate);
+          forecastStart.setDate(forecastStart.getDate() + 1); // Feb 15, 2026
+          forecastEnd = new Date(forecastStart);
+          forecastEnd.setDate(forecastEnd.getDate() + 6); // Next 7 days
+          break;
+          
+        case "month":
+          // Last 30 days (Jan 16 - Feb 14, 2026) + Next 30 days (Feb 15 - Mar 16, 2026)
+          historicalStart = new Date(historicalEndDate);
+          historicalStart.setDate(historicalStart.getDate() - 29); // Last 30 days including end date
+          historicalEnd = new Date(historicalEndDate); // Feb 14, 2026
+          forecastStart = new Date(historicalEndDate);
+          forecastStart.setDate(forecastStart.getDate() + 1); // Feb 15, 2026
+          forecastEnd = new Date(forecastStart);
+          forecastEnd.setDate(forecastEnd.getDate() + 29); // Next 30 days
+          break;
+          
+        case "quarter":
+          // Last 3 months (Nov 2025 - Feb 14, 2026) + Next 3 months (Feb 15, 2026 - May 2026)
+          historicalStart = startOfMonth(subMonths(historicalEndDate, 2)); // Nov 2025 start
+          historicalEnd = new Date(historicalEndDate); // Feb 14, 2026
+          forecastStart = new Date(historicalEndDate);
+          forecastStart.setDate(forecastStart.getDate() + 1); // Feb 15, 2026
+          forecastEnd = endOfMonth(addMonths(historicalEndDate, 2)); // Apr 2026 end
+          break;
+          
+        case "year":
+          // Last 12 months (Feb 2025 - Feb 14, 2026) + Next 12 months (Feb 15, 2026 - Feb 2027)
+          historicalStart = startOfMonth(subMonths(historicalEndDate, 11)); // Feb 2025 start
+          historicalEnd = new Date(historicalEndDate); // Feb 14, 2026
+          forecastStart = new Date(historicalEndDate);
+          forecastStart.setDate(forecastStart.getDate() + 1); // Feb 15, 2026
+          forecastEnd = endOfMonth(addMonths(historicalEndDate, 11)); // Jan 2027 end
+          break;
+          
+        default:
+          // Fallback to month
+          historicalStart = new Date(historicalEndDate);
+          historicalStart.setDate(historicalStart.getDate() - 29);
+          historicalEnd = new Date(historicalEndDate);
+          forecastStart = new Date(historicalEndDate);
+          forecastStart.setDate(forecastStart.getDate() + 1);
+          forecastEnd = new Date(forecastStart);
+          forecastEnd.setDate(forecastEnd.getDate() + 29);
+      }
     }
     
     return {
@@ -105,45 +147,72 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
       historicalEnd: format(historicalEnd, "yyyy-MM-dd"),
       forecastStart: format(forecastStart, "yyyy-MM-dd"),
       forecastEnd: format(forecastEnd, "yyyy-MM-dd"),
+      isCustom,
     };
   };
 
   // Aggregate daily data by period
   // week & month → daily granularity; quarter & year → monthly granularity
-  const aggregateByPeriod = (data: DailyData[], type: PeriodType): Record<string, { historical: number; forecasted: number }> => {
-    const result: Record<string, { historical: number; forecasted: number }> = {};
-    const dividerDate = new Date("2026-02-10");
+  const aggregateByPeriod = (data: DailyData[], type: PeriodType, isCustom: boolean): Record<string, { historical: number; forecasted: number; total?: number }> => {
+    const result: Record<string, { historical: number; forecasted: number; total?: number }> = {};
     
-    data.forEach((item) => {
-      const itemDate = new Date(item.date);
-      let period: string;
-      
-      switch (type) {
-        case "week":
-        case "month":
-          // Daily granularity for week and month views
+    // For custom ranges, combine all data into a single series
+    if (isCustom) {
+      data.forEach((item) => {
+        const itemDate = new Date(item.date);
+        let period: string;
+        
+        // Determine granularity based on period type
+        if (type === "week" || type === "month") {
           period = format(itemDate, "yyyy-MM-dd");
-          break;
-        case "quarter":
-        case "year":
-          // Monthly granularity for quarter and year views
+        } else {
           period = format(itemDate, "yyyy-MM");
-          break;
-        default:
-          period = format(itemDate, "yyyy-MM-dd");
-      }
+        }
+        
+        if (!result[period]) {
+          result[period] = { historical: 0, forecasted: 0, total: 0 };
+        }
+        
+        // For custom ranges, combine into total
+        result[period].total = (result[period].total || 0) + item.forecast_tons;
+      });
+    } else {
+      // For preset ranges, split into historical and forecasted
+      const dividerDate = new Date("2026-02-14");
       
-      if (!result[period]) {
-        result[period] = { historical: 0, forecasted: 0 };
-      }
-      
-      const isAfterDivider = itemDate > dividerDate;
-      if (isAfterDivider) {
-        result[period].forecasted += item.forecast_tons;
-      } else {
-        result[period].historical += item.forecast_tons;
-      }
-    });
+      data.forEach((item) => {
+        const itemDate = new Date(item.date);
+        let period: string;
+        
+        switch (type) {
+          case "week":
+          case "month":
+            // Daily granularity for week and month views
+            period = format(itemDate, "yyyy-MM-dd");
+            break;
+          case "quarter":
+          case "year":
+            // Monthly granularity for quarter and year views
+            period = format(itemDate, "yyyy-MM");
+            break;
+          default:
+            period = format(itemDate, "yyyy-MM-dd");
+        }
+        
+        if (!result[period]) {
+          result[period] = { historical: 0, forecasted: 0 };
+        }
+        
+        // Historical: up to and including Feb 14, 2026
+        // Forecasted: from Feb 15, 2026 onwards
+        const isAfterDivider = itemDate > dividerDate;
+        if (isAfterDivider) {
+          result[period].forecasted += item.forecast_tons;
+        } else {
+          result[period].historical += item.forecast_tons;
+        }
+      });
+    }
     
     return result;
   };
@@ -156,43 +225,62 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
       try {
         const dateRange = getDateRange(periodType);
         
-        // Load historical data (daily)
-        const historicalParams = {
-          ...queryParams,
-          from_date: dateRange.historicalStart,
-          to_date: dateRange.historicalEnd,
-          horizon: "day", // Fetch daily data
-          sku_id: selectedSku !== "all" ? selectedSku : undefined,
-          mill_id: selectedMill !== "all" ? selectedMill : undefined,
-        };
+        let combinedData: DailyData[];
         
-        // Load forecasted data (daily)
-        const forecastParams = {
-          ...queryParams,
-          from_date: dateRange.forecastStart,
-          to_date: dateRange.forecastEnd,
-          horizon: "day", // Fetch daily data
-          sku_id: selectedSku !== "all" ? selectedSku : undefined,
-          mill_id: selectedMill !== "all" ? selectedMill : undefined,
-        };
-        
-        // Fetch both historical and forecasted data
-        const [historicalRes, forecastRes] = await Promise.all([
-          fetchSkuForecast(historicalParams),
-          fetchSkuForecast(forecastParams),
-        ]);
-        
-        // Combine daily data
-        const combinedData: DailyData[] = [
-          ...(historicalRes.data || []),
-          ...(forecastRes.data || []),
-        ].map((item) => ({
-          date: item.date as string,
-          sku_id: item.sku_id as string,
-          sku_name: item.sku_name as string,
-          flour_type: item.flour_type as string,
-          forecast_tons: Number(item.forecast_tons) || 0,
-        }));
+        if (dateRange.isCustom) {
+          // For custom ranges, fetch once for the entire range
+          const params = {
+            ...queryParams,
+            from_date: dateRange.historicalStart,
+            to_date: dateRange.historicalEnd,
+            horizon: "day", // Fetch daily data
+            sku_id: selectedSku !== "all" ? selectedSku : undefined,
+          };
+          
+          const res = await fetchSkuForecast(params);
+          combinedData = (res.data || []).map((item) => ({
+            date: item.date as string,
+            sku_id: item.sku_id as string,
+            sku_name: item.sku_name as string,
+            flour_type: item.flour_type as string,
+            forecast_tons: Number(item.forecast_tons) || 0,
+          }));
+        } else {
+          // For preset ranges, fetch historical and forecasted separately
+          const historicalParams = {
+            ...queryParams,
+            from_date: dateRange.historicalStart,
+            to_date: dateRange.historicalEnd,
+            horizon: "day", // Fetch daily data
+            sku_id: selectedSku !== "all" ? selectedSku : undefined,
+          };
+          
+          const forecastParams = {
+            ...queryParams,
+            from_date: dateRange.forecastStart,
+            to_date: dateRange.forecastEnd,
+            horizon: "day", // Fetch daily data
+            sku_id: selectedSku !== "all" ? selectedSku : undefined,
+          };
+          
+          // Fetch both historical and forecasted data
+          const [historicalRes, forecastRes] = await Promise.all([
+            fetchSkuForecast(historicalParams),
+            fetchSkuForecast(forecastParams),
+          ]);
+          
+          // Combine daily data
+          combinedData = [
+            ...(historicalRes.data || []),
+            ...(forecastRes.data || []),
+          ].map((item) => ({
+            date: item.date as string,
+            sku_id: item.sku_id as string,
+            sku_name: item.sku_name as string,
+            flour_type: item.flour_type as string,
+            forecast_tons: Number(item.forecast_tons) || 0,
+          }));
+        }
         
         if (cancelled) return;
         
@@ -207,7 +295,7 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
         setDailyData(filteredData);
         
         if (!cancelled) {
-          console.log(`📊 Loaded ${filteredData.length} daily records (historical + forecasted)`);
+          console.log(`📊 Loaded ${filteredData.length} daily records${dateRange.isCustom ? " (custom range)" : " (historical + forecasted)"}`);
         }
       } catch (err) {
         if (!cancelled) {
@@ -221,13 +309,13 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
     
     loadData();
     return () => { cancelled = true; };
-  }, [periodType, selectedSku, selectedFlourType, selectedMill, queryParams.scenario]);
+  }, [periodType, selectedSku, selectedFlourType, queryParams.scenario, periodFilter, fromDate, toDate]);
 
   // Get unique SKUs and flour types for filters
   const [allSkus, setAllSkus] = useState<string[]>([]);
   const [allFlourTypes, setAllFlourTypes] = useState<string[]>([]);
 
-  // Load unique values on mount
+  // Load unique values and mill data on mount
   useEffect(() => {
     const loadUniqueValues = async () => {
       try {
@@ -255,11 +343,59 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
 
   // Transform data for chart - aggregate daily data by period
   const chartData = (() => {
-    const aggregated = aggregateByPeriod(dailyData, periodType);
+    const dateRange = getDateRange(periodType);
+    const isCustom = dateRange.isCustom;
+    const aggregated = aggregateByPeriod(dailyData, periodType, isCustom);
     
+    // For custom ranges, use total field
+    if (isCustom) {
+      // For week and month views, ensure all dates in the range are included
+      if (periodType === "week" || periodType === "month") {
+        const startDate = parseISO(dateRange.historicalStart);
+        const endDate = parseISO(dateRange.historicalEnd);
+        
+        // Generate all dates in the range
+        const allDates = eachDayOfInterval({ start: startDate, end: endDate });
+        const allPeriods = new Set(allDates.map(d => format(d, "yyyy-MM-dd")));
+        
+        // Create a map with all periods, filling in missing ones with null values
+        const completeData: Record<string, { total: number | null }> = {};
+        
+        // Initialize all periods with null values
+        allPeriods.forEach(period => {
+          completeData[period] = { total: null };
+        });
+        
+        // Fill in actual data
+        Object.entries(aggregated).forEach(([period, values]) => {
+          if (completeData[period]) {
+            completeData[period] = {
+              total: values.total && values.total > 0 ? values.total : null,
+            };
+          }
+        });
+        
+        // Convert to array and sort
+        return Object.entries(completeData)
+          .map(([period, values]) => ({
+            period,
+            total: values.total,
+          }))
+          .sort((a, b) => a.period.localeCompare(b.period));
+      }
+      
+      // For quarter and year views with custom range
+      return Object.entries(aggregated)
+        .map(([period, values]) => ({
+          period,
+          total: values.total && values.total > 0 ? values.total : null,
+        }))
+        .sort((a, b) => a.period.localeCompare(b.period));
+    }
+    
+    // For preset ranges, use historical/forecast split
     // For week and month views, ensure all dates in the range are included
     if (periodType === "week" || periodType === "month") {
-      const dateRange = getDateRange(periodType);
       const startDate = parseISO(dateRange.historicalStart);
       const endDate = parseISO(dateRange.forecastEnd);
       
@@ -305,21 +441,27 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
       .sort((a, b) => a.period.localeCompare(b.period));
   })();
 
-  // Find the divider period — last historical point
-  const getDividerPeriod = (): string => {
-    const dividerDate = new Date("2026-02-10");
+  // Find the divider period — last historical point (Feb 14, 2026)
+  // Only used for preset ranges, not custom ranges
+  const dateRange = getDateRange(periodType);
+  const isCustom = dateRange.isCustom;
+  
+  const getDividerPeriod = (): string | null => {
+    if (isCustom) return null; // No divider for custom ranges
+    
+    const dividerDate = new Date("2026-02-14");
     
     switch (periodType) {
       case "week":
       case "month":
-        // Daily granularity → divider is the last historical day
+        // Daily granularity → divider is the last historical day (Feb 14, 2026)
         return format(dividerDate, "yyyy-MM-dd");
       case "quarter":
       case "year":
-        // Monthly granularity → divider is the last historical month
+        // Monthly granularity → divider is the last historical month (Feb 2026)
         return format(dividerDate, "yyyy-MM");
       default:
-        return "";
+        return null;
     }
   };
   
@@ -328,7 +470,7 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
   if (loading) {
     return (
       <ChartContainer title="SKU Forecast Trend" subtitle="Historical and forecasted demand trends" className={className}>
-        <div className="flex items-center justify-center h-64">
+        <div className="flex items-center justify-center h-[400px]">
           <p className="text-sm text-muted-foreground">Loading forecast data...</p>
         </div>
       </ChartContainer>
@@ -338,13 +480,17 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
   return (
     <ChartContainer 
       title="SKU Forecast Trend" 
-      subtitle="Historical and forecasted demand trends" 
-      className={className}
+      subtitle={isCustom ? "Demand forecast for selected date range" : "Historical and forecasted demand trends"} 
+      className={cn("p-2 sm:p-3", className)}
     >
-      <div className="space-y-3">
+      <div className="space-y-2">
         {/* Filters - Compact */}
-        <div className="flex flex-wrap items-center gap-2 p-2 bg-muted/20 rounded-md border border-border">
-          <Select value={periodType} onValueChange={(v) => setPeriodType(v as PeriodType)}>
+        <div className="flex flex-wrap items-center gap-2 p-1 bg-muted/20 rounded-md border border-border">
+          <Select 
+            value={periodType} 
+            onValueChange={(v) => setPeriodType(v as PeriodType)}
+            disabled={periodFilter === "custom"}
+          >
             <SelectTrigger className="h-7 w-28 text-xs">
               <SelectValue />
             </SelectTrigger>
@@ -384,24 +530,12 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
             </SelectContent>
           </Select>
 
-          <Select value={selectedMill} onValueChange={setSelectedMill}>
-            <SelectTrigger className="h-7 w-28 text-xs">
-              <SelectValue placeholder="Mill" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Mills</SelectItem>
-              {MILL_OPTIONS.map((mill) => (
-                <SelectItem key={mill} value={mill}>
-                  {mill}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Mill filter removed: SKU forecast is demand-level data, not mill-specific */}
         </div>
 
         {/* Chart */}
         {chartData.length > 0 ? (
-          <div className="w-full" style={{ height: "360px" }}>
+          <div className="w-full h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart 
                 data={chartData} 
@@ -446,6 +580,12 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
                   }}
                   formatter={(value: number, name: string) => {
                     if (value === null || value === undefined || isNaN(value) || value === 0) return null;
+                    if (isCustom) {
+                      return [
+                        `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })} tons`,
+                        "Forecast"
+                      ];
+                    }
                     const labels: Record<string, string> = {
                       historical: "Historical",
                       forecasted: "Forecasted",
@@ -469,47 +609,49 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
                     return label;
                   }}
                 />
-                <Legend
-                  content={({ payload }) => {
-                    if (!payload?.length) return null;
-                    const labels: Record<string, string> = {
-                      historical: "Historical",
-                      forecasted: "Forecasted",
-                    };
-                    return (
-                      <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 pt-5 pb-1">
-                        <div className="inline-flex items-center gap-4 rounded-lg border border-border/70 bg-muted/30 px-4 py-2 shadow-sm">
-                          {payload.map((entry) => (
-                            <div
-                              key={entry.value}
-                              className="flex items-center gap-2.5"
-                            >
-                              <svg width="26" height="12" viewBox="0 0 26 12" fill="none" className="shrink-0" aria-hidden>
-                                <line
-                                  x1="0"
-                                  y1="6"
-                                  x2="26"
-                                  y2="6"
-                                  stroke={entry.color}
-                                  strokeWidth={2}
-                                  strokeLinecap="round"
-                                  strokeDasharray={entry.value === "forecasted" ? "5 4" : undefined}
-                                />
-                                <circle cx="13" cy="6" r="3" fill="white" stroke={entry.color} strokeWidth={2} />
-                              </svg>
-                              <span className="text-xs font-semibold text-foreground">
-                                {labels[entry.value as string] || entry.value}
-                              </span>
-                            </div>
-                          ))}
+                {!isCustom && (
+                  <Legend
+                    content={({ payload }) => {
+                      if (!payload?.length) return null;
+                      const labels: Record<string, string> = {
+                        historical: "Historical",
+                        forecasted: "Forecasted",
+                      };
+                      return (
+                        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 pt-5 pb-1">
+                          <div className="inline-flex items-center gap-4 rounded-lg border border-border/70 bg-muted/30 px-4 py-2 shadow-sm">
+                            {payload.map((entry) => (
+                              <div
+                                key={entry.value}
+                                className="flex items-center gap-2.5"
+                              >
+                                <svg width="26" height="12" viewBox="0 0 26 12" fill="none" className="shrink-0" aria-hidden>
+                                  <line
+                                    x1="0"
+                                    y1="6"
+                                    x2="26"
+                                    y2="6"
+                                    stroke={entry.color}
+                                    strokeWidth={2}
+                                    strokeLinecap="round"
+                                    strokeDasharray={entry.value === "forecasted" ? "5 4" : undefined}
+                                  />
+                                  <circle cx="13" cy="6" r="3" fill="white" stroke={entry.color} strokeWidth={2} />
+                                </svg>
+                                <span className="text-xs font-semibold text-foreground">
+                                  {labels[entry.value as string] || entry.value}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  }}
-                />
+                      );
+                    }}
+                  />
+                )}
                 
-                {/* Visual divider for historical vs forecasted */}
-                {dividerPeriod && (
+                {/* Visual divider for historical vs forecasted - only for preset ranges */}
+                {!isCustom && dividerPeriod && (
                   <ReferenceLine
                     x={dividerPeriod}
                     stroke="hsl(var(--muted-foreground))"
@@ -526,35 +668,51 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
                   />
                 )}
                 
-                {/* Historical line - solid, continuous up to divider */}
-                <Line
-                  type="monotone"
-                  dataKey="historical"
-                  name="Historical"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={2}
-                  dot={(periodType === "week" || periodType === "month") ? { r: 2, fill: "hsl(var(--primary))" } : { r: 3, fill: "hsl(var(--primary))" }}
-                  activeDot={{ r: 5, stroke: "hsl(var(--primary))", strokeWidth: 2 }}
-                  connectNulls={true}
-                />
-                
-                {/* Forecasted line - dashed, continuous from divider onwards */}
-                <Line
-                  type="monotone"
-                  dataKey="forecasted"
-                  name="Forecasted"
-                  stroke="hsl(45, 93%, 47%)"
-                  strokeWidth={2}
-                  strokeDasharray="8 4"
-                  dot={(periodType === "week" || periodType === "month") ? { r: 2, fill: "hsl(45, 93%, 47%)" } : { r: 3, fill: "hsl(45, 93%, 47%)" }}
-                  activeDot={{ r: 5, stroke: "hsl(45, 93%, 47%)", strokeWidth: 2 }}
-                  connectNulls={true}
-                />
+                {/* For custom ranges: single line showing total */}
+                {isCustom ? (
+                  <Line
+                    type="monotone"
+                    dataKey="total"
+                    name="Forecast"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    dot={(periodType === "week" || periodType === "month") ? { r: 2, fill: "hsl(var(--primary))" } : { r: 3, fill: "hsl(var(--primary))" }}
+                    activeDot={{ r: 5, stroke: "hsl(var(--primary))", strokeWidth: 2 }}
+                    connectNulls={true}
+                  />
+                ) : (
+                  <>
+                    {/* Historical line - solid, continuous up to divider */}
+                    <Line
+                      type="monotone"
+                      dataKey="historical"
+                      name="Historical"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      dot={(periodType === "week" || periodType === "month") ? { r: 2, fill: "hsl(var(--primary))" } : { r: 3, fill: "hsl(var(--primary))" }}
+                      activeDot={{ r: 5, stroke: "hsl(var(--primary))", strokeWidth: 2 }}
+                      connectNulls={true}
+                    />
+                    
+                    {/* Forecasted line - dashed, continuous from divider onwards */}
+                    <Line
+                      type="monotone"
+                      dataKey="forecasted"
+                      name="Forecasted"
+                      stroke="hsl(45, 93%, 47%)"
+                      strokeWidth={2}
+                      strokeDasharray="8 4"
+                      dot={(periodType === "week" || periodType === "month") ? { r: 2, fill: "hsl(45, 93%, 47%)" } : { r: 3, fill: "hsl(45, 93%, 47%)" }}
+                      activeDot={{ r: 5, stroke: "hsl(45, 93%, 47%)", strokeWidth: 2 }}
+                      connectNulls={true}
+                    />
+                  </>
+                )}
               </LineChart>
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 py-8 text-center" style={{ height: "360px" }}>
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 py-8 text-center h-[400px]">
             <p className="text-sm font-medium text-foreground">No forecast data available</p>
             <p className="text-xs text-muted-foreground mt-1">Try adjusting filters or date range</p>
           </div>

@@ -85,12 +85,11 @@ except ImportError as e:
     dg = None
 
 # Import Text2SQL chatbot (optional: if API key missing or import fails, server still starts; chatbot returns 503)
+# chatbot_api is now in the backend folder, not Text2SQL_V2
 run_chatbot_query = None
 CHATBOT_AVAILABLE = False
 try:
-    text2sql_path = os.path.join(parent_dir, "Text2SQL_V2")
-    if text2sql_path not in sys.path:
-        sys.path.insert(0, text2sql_path)
+    # Import from backend folder directly (chatbot_api.py is in the same directory)
     from chatbot_api import run_chatbot_query as _run_chatbot_query
     run_chatbot_query = _run_chatbot_query
     CHATBOT_AVAILABLE = True
@@ -151,15 +150,12 @@ def load_data():
             "fact_plan": _load("fact_mill_recipe_plan"),
             "fact_wheat_req": _load("fact_wheat_requirement"),
             "fact_waste": _load("fact_waste_metrics"),
-            "raw_material_prices": _load("raw_material_prices"),
             # Layer 4
             "fact_kpi": _load("fact_kpi_snapshot"),
-            # Time
-            "time_dimension": _load("time_dimension"),
         }
         # Parse dates once
         for key in ["fact_sku_forecast", "fact_bulk_flour", "fact_recipe_demand",
-                     "fact_mill_capacity", "fact_schedule", "raw_material_prices"]:
+                     "fact_mill_capacity", "fact_schedule"]:
             df = data_cache.get(key, pd.DataFrame())
             if not df.empty and "date" in df.columns:
                 data_cache[key]["date"] = pd.to_datetime(df["date"])
@@ -207,7 +203,7 @@ def initialize_forecaster():
         # Train models if they don't exist or if we need to retrain
         if len(existing_models) < len(sku_list):
             print(f"🔄 Training forecast models for {len(sku_list)} SKUs...")
-            time_dim_path = os.path.join(_backend_dir, DATA_DIR, "time_dimension.csv")
+            time_dim_path = None  # Time dimension generated inline
             fcast_path = os.path.join(_backend_dir, DATA_DIR, "fact_sku_forecast.csv")
             
             # Save current forecast data to CSV if needed (for training)
@@ -239,9 +235,13 @@ def initialize_forecaster():
                         # Map __main__ classes to forecast_models classes for pickle compatibility
                         class CustomUnpickler(pickle.Unpickler):
                             def find_class(self, module, name):
-                                if module == '__main__' and name in ['SimpleModel', 'StatsModelWrapper']:
-                                    if forecast_models:
+                                # Map __main__ classes to forecast_models module
+                                if module == '__main__':
+                                    if hasattr(forecast_models, name):
                                         return getattr(forecast_models, name)
+                                # Also handle direct forecast_models references
+                                if module.startswith('forecast_models') or module == 'forecast_models':
+                                    return getattr(forecast_models, name)
                                 return super().find_class(module, name)
                         
                         with open(model_path, 'rb') as f:
@@ -250,45 +250,41 @@ def initialize_forecaster():
                                 model = pickle.load(f)
                                 forecaster.models[sku_id] = model
                                 loaded_count += 1
-                            except (AttributeError, ModuleNotFoundError, KeyError):
+                            except (AttributeError, ModuleNotFoundError, KeyError, TypeError) as e:
                                 # If that fails, use custom unpickler
                                 f.seek(0)
-                                unpickler = CustomUnpickler(f)
-                                model = unpickler.load()
-                                forecaster.models[sku_id] = model
-                                loaded_count += 1
+                                try:
+                                    unpickler = CustomUnpickler(f)
+                                    model = unpickler.load()
+                                    forecaster.models[sku_id] = model
+                                    loaded_count += 1
+                                except Exception as e2:
+                                    # If custom unpickler also fails, re-raise to mark as failed
+                                    raise e
                 except Exception as e:
                     print(f"   ⚠️ Failed to load model for {sku_id}: {str(e)}")
                     failed_skus.append(sku_id)
             
-            # If many models failed to load, retrain them
-            if len(failed_skus) > len(sku_list) / 2:
-                print(f"🔄 Retraining models due to loading issues...")
+            # If many models failed to load or none loaded, retrain them
+            if len(failed_skus) > len(sku_list) / 2 or loaded_count == 0:
+                print(f"🔄 Retraining models due to loading issues ({len(failed_skus)} failed, {loaded_count} loaded)...")
                 fcast_path = os.path.join(_backend_dir, DATA_DIR, "fact_sku_forecast.csv")
-                time_dim_path = os.path.join(_backend_dir, DATA_DIR, "time_dimension.csv")
+                time_dim_path = None  # Time dimension generated inline, not from file
                 if os.path.exists(fcast_path):
-                    forecaster = train_and_save_models(
-                        data_path=fcast_path,
-                        time_dim_path=time_dim_path,
-                        model_dir=model_dir_path
-                    )
-                    loaded_count = len(forecaster.models)
-                    print(f"✅ Retrained {loaded_count} models successfully")
+                    try:
+                        forecaster = train_and_save_models(
+                            data_path=fcast_path,
+                            time_dim_path=time_dim_path,
+                            model_dir=model_dir_path
+                        )
+                        loaded_count = len(forecaster.models)
+                        print(f"✅ Retrained {loaded_count} models successfully")
+                    except Exception as e:
+                        print(f"⚠️ Error retraining models: {e}")
+                        import traceback
+                        traceback.print_exc()
             
-            # Load time dimension for holidays
-            time_dim_path = os.path.join(_backend_dir, DATA_DIR, "time_dimension.csv")
-            if os.path.exists(time_dim_path):
-                time_dim = pd.read_csv(time_dim_path)
-                time_dim["date"] = pd.to_datetime(time_dim["date"])
-                
-                ramadan_days = time_dim[time_dim["is_ramadan"] == True][["date"]].copy()
-                ramadan_days["holiday"] = "ramadan"
-                hajj_days = time_dim[time_dim["is_hajj"] == True][["date"]].copy()
-                hajj_days["holiday"] = "hajj"
-                
-                holidays_df = pd.concat([ramadan_days, hajj_days], ignore_index=True)
-                holidays_df.rename(columns={"date": "ds"}, inplace=True)
-                forecaster.holidays_df = holidays_df
+            # Holidays are generated inline in train_and_save_models
             
             print(f"✅ Loaded {loaded_count}/{len(sku_list)} forecast models")
             
@@ -411,14 +407,22 @@ async def generate_and_update_forecasts(
             raise HTTPException(status_code=400, detail="No SKU data available")
         
         # Determine date range
+        # ACTUAL data ends at 2026-02-14, forecasts start after that
+        ACTUAL_DATA_END_DATE = pd.Timestamp("2026-02-14")
+        
         if start_date:
             from_dt = pd.to_datetime(start_date)
+            # Ensure forecast start is after actual data ends
+            if from_dt <= ACTUAL_DATA_END_DATE:
+                from_dt = ACTUAL_DATA_END_DATE + pd.Timedelta(days=1)
         else:
             if fcast.empty or "date" not in fcast.columns:
-                from_dt = pd.Timestamp("2026-02-11")  # Default start
+                from_dt = ACTUAL_DATA_END_DATE + pd.Timedelta(days=1)  # Start forecasting after actual data
             else:
                 max_date = pd.to_datetime(fcast["date"]).max()
-                from_dt = max_date + pd.Timedelta(days=1)
+                # Forecasts should start after actual data ends, not after max date in cache
+                from_dt = max(ACTUAL_DATA_END_DATE + pd.Timedelta(days=1), 
+                             max_date + pd.Timedelta(days=1))
         
         if end_date:
             to_dt = pd.to_datetime(end_date)
@@ -478,7 +482,7 @@ async def health():
 async def get_date_range():
     try:
         date_ranges = []
-        for key in ["fact_sku_forecast", "raw_material_prices", "fact_schedule"]:
+        for key in ["fact_sku_forecast", "fact_schedule"]:
             df = data_cache.get(key, pd.DataFrame())
             if not df.empty and "date" in df.columns:
                 s = pd.to_datetime(df["date"])
@@ -514,22 +518,30 @@ async def get_executive_kpis(
     """
     Returns 6 executive KPIs:
       demand, recipe_time, capacity, risk, waste, vision2030
+    Note: KPIs only include future/forecasted data (after 2026-02-14), not historical data.
     """
     try:
         scenario = scenario or "base"
         m = _mult(scenario)
         from_dt, to_dt = _date_range(from_date, to_date)
+        
+        # Ensure KPIs only use future data (after historical end date)
+        HISTORICAL_END_DATE = pd.Timestamp("2026-02-14")
+        if from_dt <= HISTORICAL_END_DATE:
+            from_dt = HISTORICAL_END_DATE + pd.Timedelta(days=1)
+        if to_dt <= HISTORICAL_END_DATE:
+            to_dt = HISTORICAL_END_DATE + pd.Timedelta(days=1)
 
         # ── Demand ─────────────────────────────────────────────────────
         # Use helper function to get forecast data (includes generated forecasts for future dates)
         fcast = _get_forecast_data(from_dt, to_dt)
-        current_demand = float(fcast["forecast_tons"].sum()) * m if not fcast.empty else 0
+        current_demand = float(fcast["demand_tons"].sum()) * m if not fcast.empty else 0
 
         period_days = (to_dt - from_dt).days
         prev_from = from_dt - pd.Timedelta(days=period_days)
         prev_to = from_dt - pd.Timedelta(days=1)
         prev_fcast = _get_forecast_data(prev_from, prev_to)
-        prev_demand = float(prev_fcast["forecast_tons"].sum()) if not prev_fcast.empty else 0
+        prev_demand = float(prev_fcast["demand_tons"].sum()) if not prev_fcast.empty else 0
         demand_growth = ((current_demand - prev_demand) / prev_demand * 100) if prev_demand > 0 else 0
 
         # ── Recipe Time ───────────────────────────────────────────────
@@ -550,14 +562,17 @@ async def get_executive_kpis(
             overload_mills = int(overloaded["mill_id"].nunique())
 
         # ── Risk (wheat price) ────────────────────────────────────────
-        rp = _filter_dates(data_cache.get("raw_material_prices", pd.DataFrame()), from_dt, to_dt)
+        # Generate raw material prices inline for date range
+        import data_generator as dg
+        time_dim_range = _generate_time_dimension_extended(from_dt, to_dt)
+        rp = dg.generate_raw_material_prices(time_dim_range)
         avg_price = float(rp["wheat_price_sar_per_ton"].mean()) if not rp.empty else 0
 
-        prev_rp = _filter_dates(
-            data_cache.get("raw_material_prices", pd.DataFrame()),
-            from_dt - pd.Timedelta(days=period_days),
-            from_dt - pd.Timedelta(days=1),
-        )
+        # Generate for previous period
+        prev_start = from_dt - pd.Timedelta(days=period_days)
+        prev_end = from_dt - pd.Timedelta(days=1)
+        prev_time_dim = _generate_time_dimension_extended(prev_start, prev_end)
+        prev_rp = dg.generate_raw_material_prices(prev_time_dim)
         prev_price = float(prev_rp["wheat_price_sar_per_ton"].mean()) if not prev_rp.empty else avg_price
         price_change = ((avg_price - prev_price) / prev_price * 100) if prev_price > 0 else 0
 
@@ -585,7 +600,7 @@ async def get_executive_kpis(
         dim_mill = data_cache.get("dim_mill", pd.DataFrame())
         energy_eff = float(dim_mill["energy_efficiency_index"].mean()) if not dim_mill.empty else 75
         water_eff = float(dim_mill["water_efficiency_index"].mean()) if not dim_mill.empty else 72
-        waste_target = 3.9
+        waste_target = 2.5  # Vision 2030 sustainability target (matches data_generator.py WASTE_TARGET_PCT)
         waste_score = max(0, min(100, (1 - (waste_rate / waste_target - 1)) * 100))
         v2030 = round(waste_score * 0.30 + energy_eff * 0.30 + water_eff * 0.25 + 85 * 0.15, 1)
 
@@ -620,17 +635,26 @@ async def get_demand_recipe_kpis(
     to_date: Optional[str] = None,
     scenario: Optional[str] = Query("base"),
 ):
-    """5 KPIs for the Demand → Recipe Translation page."""
+    """5 KPIs for the Demand → Recipe Translation page.
+    Note: KPIs only include future/forecasted data (after 2026-02-14), not historical data.
+    """
     try:
         m = _mult(scenario or "base")
         from_dt, to_dt = _date_range(from_date, to_date)
+        
+        # Ensure KPIs only use future data (after historical end date)
+        HISTORICAL_END_DATE = pd.Timestamp("2026-02-14")
+        if from_dt <= HISTORICAL_END_DATE:
+            from_dt = HISTORICAL_END_DATE + pd.Timedelta(days=1)
+        if to_dt <= HISTORICAL_END_DATE:
+            to_dt = HISTORICAL_END_DATE + pd.Timedelta(days=1)
 
         # Use helper function to get forecast data (includes generated forecasts for future dates)
         fcast = _get_forecast_data(from_dt, to_dt)
         bflour = _filter_dates(data_cache.get("fact_bulk_flour", pd.DataFrame()), from_dt, to_dt)
         rdem = _filter_dates(data_cache.get("fact_recipe_demand", pd.DataFrame()), from_dt, to_dt)
 
-        total_units = int(fcast["forecast_units"].sum() * m) if not fcast.empty else 0
+        total_units = int(fcast["demand_units"].sum() * m) if not fcast.empty else 0
         bulk_tons = float(bflour["required_tons"].sum() * m) if not bflour.empty else 0
         recipe_hours = float(rdem["required_hours"].sum() * m) if not rdem.empty else 0
         conf = float(fcast["confidence_pct"].mean() * 100) if not fcast.empty else 0
@@ -655,10 +679,19 @@ async def get_recipe_planning_kpis(
     to_date: Optional[str] = None,
     scenario: Optional[str] = Query("base"),
 ):
-    """8 KPIs for the Recipe & Mill Planning page (incl. cost_impact & risk_score)."""
+    """8 KPIs for the Recipe & Mill Planning page (incl. cost_impact & risk_score).
+    Note: KPIs only include future/forecasted data (after 2026-02-14), not historical data.
+    """
     try:
         m = _mult(scenario or "base")
         from_dt, to_dt = _date_range(from_date, to_date)
+        
+        # Ensure KPIs only use future data (after historical end date)
+        HISTORICAL_END_DATE = pd.Timestamp("2026-02-14")
+        if from_dt <= HISTORICAL_END_DATE:
+            from_dt = HISTORICAL_END_DATE + pd.Timedelta(days=1)
+        if to_dt <= HISTORICAL_END_DATE:
+            to_dt = HISTORICAL_END_DATE + pd.Timedelta(days=1)
 
         sched = _filter_dates(data_cache.get("fact_schedule", pd.DataFrame()), from_dt, to_dt)
         cap = _filter_dates(data_cache.get("fact_mill_capacity", pd.DataFrame()), from_dt, to_dt)
@@ -747,10 +780,19 @@ async def get_mill_operations_kpis(
     to_date: Optional[str] = None,
     scenario: Optional[str] = Query("base"),
 ):
-    """5 KPIs for the Mill Runtime & Sequencing page."""
+    """5 KPIs for the Mill Runtime & Sequencing page.
+    Note: KPIs only include future/forecasted data (after 2026-02-14), not historical data.
+    """
     try:
         m = _mult(scenario or "base")
         from_dt, to_dt = _date_range(from_date, to_date)
+        
+        # Ensure KPIs only use future data (after historical end date)
+        HISTORICAL_END_DATE = pd.Timestamp("2026-02-14")
+        if from_dt <= HISTORICAL_END_DATE:
+            from_dt = HISTORICAL_END_DATE + pd.Timedelta(days=1)
+        if to_dt <= HISTORICAL_END_DATE:
+            to_dt = HISTORICAL_END_DATE + pd.Timedelta(days=1)
 
         sched = _filter_dates(data_cache.get("fact_schedule", pd.DataFrame()), from_dt, to_dt)
         cap = _filter_dates(data_cache.get("fact_mill_capacity", pd.DataFrame()), from_dt, to_dt)
@@ -805,10 +847,19 @@ async def get_raw_materials_kpis(
     to_date: Optional[str] = None,
     scenario: Optional[str] = Query("base"),
 ):
-    """5 KPIs for the Raw Materials & Wheat Origins page."""
+    """5 KPIs for the Raw Materials & Wheat Origins page.
+    Note: KPIs only include future/forecasted data (after 2026-02-14), not historical data.
+    """
     try:
         m = _mult(scenario or "base")
         from_dt, to_dt = _date_range(from_date, to_date)
+        
+        # Ensure KPIs only use future data (after historical end date)
+        HISTORICAL_END_DATE = pd.Timestamp("2026-02-14")
+        if from_dt <= HISTORICAL_END_DATE:
+            from_dt = HISTORICAL_END_DATE + pd.Timedelta(days=1)
+        if to_dt <= HISTORICAL_END_DATE:
+            to_dt = HISTORICAL_END_DATE + pd.Timedelta(days=1)
 
         start_p = from_dt.to_period("M").strftime("%Y-%m")
         end_p = to_dt.to_period("M").strftime("%Y-%m")
@@ -821,7 +872,10 @@ async def get_raw_materials_kpis(
 
         total_wheat = float(wr["required_tons"].sum()) * m if not wr.empty else 0
 
-        rp = _filter_dates(data_cache.get("raw_material_prices", pd.DataFrame()), from_dt, to_dt)
+        # Generate raw material prices inline for date range
+        import data_generator as dg
+        time_dim_range = _generate_time_dimension_extended(from_dt, to_dt)
+        rp = dg.generate_raw_material_prices(time_dim_range)
         avg_cost = float(rp["wheat_price_sar_per_ton"].mean()) if not rp.empty else 0
 
         # Import dependency
@@ -863,9 +917,18 @@ async def get_sustainability_kpis(
     to_date: Optional[str] = None,
     scenario: Optional[str] = Query("base"),
 ):
-    """5 KPIs for the Waste & Vision 2030 page."""
+    """5 KPIs for the Waste & Vision 2030 page.
+    Note: KPIs only include future/forecasted data (after 2026-02-14), not historical data.
+    """
     try:
         from_dt, to_dt = _date_range(from_date, to_date)
+        
+        # Ensure KPIs only use future data (after historical end date)
+        HISTORICAL_END_DATE = pd.Timestamp("2026-02-14")
+        if from_dt <= HISTORICAL_END_DATE:
+            from_dt = HISTORICAL_END_DATE + pd.Timedelta(days=1)
+        if to_dt <= HISTORICAL_END_DATE:
+            to_dt = HISTORICAL_END_DATE + pd.Timedelta(days=1)
         start_p = from_dt.to_period("M").strftime("%Y-%m")
         end_p = to_dt.to_period("M").strftime("%Y-%m")
 
@@ -879,7 +942,7 @@ async def get_sustainability_kpis(
         energy = float(wm["energy_per_ton"].mean()) if not wm.empty else 55
         water = float(wm["water_per_ton"].mean()) if not wm.empty else 0.7
 
-        target = 3.9
+        target = 2.5  # Vision 2030 sustainability target (matches data_generator.py WASTE_TARGET_PCT)
         waste_gap = round(waste_rate - target, 2)
 
         dim_mill = data_cache.get("dim_mill", pd.DataFrame())
@@ -1016,37 +1079,11 @@ def _generate_time_dimension_extended(start_date, end_date):
 
 def _update_time_dimension(start_date, end_date):
     """
-    Update time_dimension.csv with future dates.
+    Generate time dimension for date range (inline, not saved to file).
+    This function is kept for compatibility but doesn't save to file.
     """
-    try:
-        time_dim_path = os.path.join(_backend_dir, DATA_DIR, "time_dimension.csv")
-        
-        # Load existing
-        if os.path.exists(time_dim_path):
-            existing_df = pd.read_csv(time_dim_path)
-            existing_df["date"] = pd.to_datetime(existing_df["date"])
-            max_existing_date = existing_df["date"].max()
-        else:
-            existing_df = pd.DataFrame()
-            max_existing_date = None
-        
-        # Generate new time dimension if needed
-        if max_existing_date is None or end_date > max_existing_date:
-            gen_start = max_existing_date + pd.Timedelta(days=1) if max_existing_date else start_date
-            new_time_dim = _generate_time_dimension_extended(gen_start, end_date)
-            
-            if not new_time_dim.empty:
-                if not existing_df.empty:
-                    combined_df = pd.concat([existing_df, new_time_dim], ignore_index=True)
-                else:
-                    combined_df = new_time_dim.copy()
-                
-                combined_df = combined_df.sort_values("date").reset_index(drop=True)
-                combined_df.to_csv(time_dim_path, index=False)
-                data_cache["time_dimension"] = combined_df.copy()
-                print(f"✅ Updated time_dimension.csv with dates up to {end_date.date()}")
-    except Exception as e:
-        print(f"⚠️ Error updating time_dimension: {e}")
+    # Time dimension is generated inline when needed, not saved as separate dataset
+    pass
 
 
 def _update_derived_datasets(start_date, end_date):
@@ -1060,9 +1097,9 @@ def _update_derived_datasets(start_date, end_date):
     - fact_wheat_requirement
     - fact_waste_metrics
     - fact_kpi_snapshot
-    - raw_material_prices
     - fact_mill_capacity
-    - recipe_mix
+    
+    Note: recipe_mix and raw_material_prices are computed inline but not saved as separate datasets.
     """
     if not DATA_GENERATOR_AVAILABLE:
         print("⚠️ Data generator functions not available, skipping derived dataset updates")
@@ -1115,10 +1152,9 @@ def _update_derived_datasets(start_date, end_date):
             bulk_flour = dg.derive_fact_bulk_flour_requirement(fcast_range, dim_sku)
             _append_to_dataset("fact_bulk_flour_requirement", bulk_flour, start_date)
         
-        # 2. Recipe mix
+        # 2. Recipe mix (computed inline, not saved)
         if not map_flour_recipe.empty:
             recipe_mix = dg.compute_dynamic_recipe_mix(time_dim_range, map_flour_recipe)
-            _append_to_dataset("recipe_mix", recipe_mix, start_date)
         
         # 3. Recipe demand
         if bulk_flour is not None and recipe_mix is not None and not dim_recipe.empty:
@@ -1153,9 +1189,8 @@ def _update_derived_datasets(start_date, end_date):
             if not waste.empty:
                 _append_to_dataset("fact_waste_metrics", waste, start_date)
         
-        # 9. Raw material prices
+        # 9. Raw material prices (computed inline, not saved)
         raw_prices = dg.generate_raw_material_prices(time_dim_range)
-        _append_to_dataset("raw_material_prices", raw_prices, start_date)
         
         # 10. KPI snapshot (requires all above) - reload full datasets after updates
         # Reload all datasets to get the complete data including new additions
@@ -1257,15 +1292,13 @@ def _append_to_dataset(dataset_name, new_data, start_date):
 def _update_forecast_dataset(new_forecast_df):
     """
     Update the fact_sku_forecast dataset with new forecast data.
-    Also updates sku_forecast.csv (training dataset) to match.
-    Appends new forecasts to the CSV files and updates the data cache.
+    Appends new forecasts to the CSV file and updates the data cache.
     """
     if new_forecast_df.empty:
         return
     
     try:
         fcast_path = os.path.join(_backend_dir, DATA_DIR, "fact_sku_forecast.csv")
-        sku_fcast_path = os.path.join(_backend_dir, DATA_DIR, "sku_forecast.csv")
         
         # Load existing data
         if os.path.exists(fcast_path):
@@ -1299,13 +1332,10 @@ def _update_forecast_dataset(new_forecast_df):
         # Save to fact_sku_forecast.csv
         combined_df.to_csv(fcast_path, index=False)
         
-        # Also save to sku_forecast.csv (training dataset) - same data
-        combined_df.to_csv(sku_fcast_path, index=False)
-        
         # Update cache
         data_cache["fact_sku_forecast"] = combined_df.copy()
         
-        print(f"✅ Updated forecast datasets (fact_sku_forecast.csv & sku_forecast.csv) with {len(new_forecast_df)} new records")
+        print(f"✅ Updated forecast dataset (fact_sku_forecast.csv) with {len(new_forecast_df)} new records")
         
         # Update time dimension for the new date range
         if not new_forecast_df.empty:
@@ -1347,12 +1377,18 @@ def _get_forecast_data(from_dt, to_dt, sku_id=None, update_dataset=True):
             fcast = fcast[fcast["sku_id"] == sku_id]
     
     # Generate forecasts for future dates if needed
+    # ACTUAL data ends at 2026-02-14, forecasts start after that date
+    ACTUAL_DATA_END_DATE = pd.Timestamp("2026-02-14")
+    
     future_forecast = pd.DataFrame()
     if max_available_date is None or to_dt > max_available_date:
-        forecast_start = max_available_date + pd.Timedelta(days=1) if max_available_date else from_dt
+        # Forecasts should only start after actual data ends (2026-02-14)
+        forecast_start = max(ACTUAL_DATA_END_DATE + pd.Timedelta(days=1), 
+                             max_available_date + pd.Timedelta(days=1) if max_available_date else from_dt)
         forecast_end = to_dt
         
-        if forecast_start <= forecast_end:
+        # Only generate forecasts if the requested end date is after actual data ends
+        if forecast_start <= forecast_end and forecast_start > ACTUAL_DATA_END_DATE:
             print(f"📈 Generating forecasts from {forecast_start.date()} to {forecast_end.date()}")
             if FORECAST_SERVICE_AVAILABLE:
                 future_forecast = generate_future_forecast(
@@ -1364,6 +1400,8 @@ def _get_forecast_data(from_dt, to_dt, sku_id=None, update_dataset=True):
                 )
             else:
                 future_forecast = pd.DataFrame()
+        elif forecast_start <= ACTUAL_DATA_END_DATE:
+            print(f"ℹ️ Requested date range ({from_dt.date()} to {to_dt.date()}) is within actual data period (ends {ACTUAL_DATA_END_DATE.date()}). No forecasts needed.")
             
             if sku_id and not future_forecast.empty:
                 future_forecast = future_forecast[future_forecast["sku_id"] == sku_id]
@@ -1404,6 +1442,7 @@ async def get_sku_forecast(
     horizon: Optional[str] = Query(None, pattern="^(day|week|month|year)$"),
     period: Optional[str] = None,
     sku_id: Optional[str] = None,
+    mill_id: Optional[str] = None,
     scenario: Optional[str] = Query("base"),
 ):
     try:
@@ -1426,28 +1465,37 @@ async def get_sku_forecast(
         if not dim_flour.empty and "flour_type_id" in fcast.columns:
             fcast = fcast.merge(dim_flour[["flour_type_id", "flour_name"]], on="flour_type_id", how="left")
             fcast.rename(columns={"flour_name": "flour_type"}, inplace=True)
+        
+        # Note: SKU forecast is demand-level data and does not have mill_id.
+        # Mill filtering is not applicable to SKU forecasts as they represent
+        # aggregate demand, not production by mill.
 
         # If horizon is "day", return daily data without aggregation
         if horizon == "day":
             fcast["date"] = fcast["date"].dt.strftime("%Y-%m-%d")
             if m != 1.0:
-                fcast["forecast_tons"] = (fcast["forecast_tons"] * m).round(2)
+                fcast["demand_tons"] = (fcast["demand_tons"] * m).round(2)
+            # Frontend expects forecast_tons, so alias demand_tons as forecast_tons
+            fcast["forecast_tons"] = fcast["demand_tons"]
             return {"data": fcast[["date", "sku_id", "sku_name", "flour_type", "forecast_tons"]].to_dict(orient="records")}
-        
+
         # Add period grouping for other horizons
         fcast = _add_period(fcast, horizon or "month")
 
         agg = fcast.groupby(["period", "sku_id", "sku_name", "flour_type"]).agg(
-            forecast_tons=("forecast_tons", "sum"),
+            demand_tons=("demand_tons", "sum"),
         ).reset_index()
 
         if m != 1.0:
-            agg["forecast_tons"] = (agg["forecast_tons"] * m).round(2)
+            agg["demand_tons"] = (agg["demand_tons"] * m).round(2)
+        
+        # Frontend expects forecast_tons, so alias demand_tons as forecast_tons
+        agg["forecast_tons"] = agg["demand_tons"]
 
         if period:
             agg = agg[agg["period"] == period]
 
-        return {"data": agg.to_dict(orient="records")}
+        return {"data": agg[["period", "sku_id", "sku_name", "flour_type", "forecast_tons"]].to_dict(orient="records")}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1498,8 +1546,9 @@ async def get_bulk_flour_demand(
 async def get_recipe_planning(
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
-    horizon: Optional[str] = Query(None, pattern="^(week|month|year)$"),
+    horizon: Optional[str] = Query(None, pattern="^(day|week|month|year)$"),
     period: Optional[str] = None,
+    mill_id: Optional[str] = None,
     scenario: Optional[str] = Query("base"),
 ):
     try:
@@ -1512,7 +1561,17 @@ async def get_recipe_planning(
 
         from_dt, to_dt = _date_range(from_date, to_date)
         sched = _filter_dates(sched, from_dt, to_dt)
-        sched = _add_period(sched, horizon or "month")
+        
+        # Filter by mill_id if provided
+        if mill_id:
+            mill_ids = [m.strip() for m in mill_id.split(",")]
+            sched = sched[sched["mill_id"].isin(mill_ids)]
+        
+        # If horizon is "day", use date as period
+        if horizon == "day":
+            sched["period"] = sched["date"].dt.strftime("%Y-%m-%d")
+        else:
+            sched = _add_period(sched, horizon or "month")
 
         dim_recipe = data_cache.get("dim_recipe", pd.DataFrame())
         dim_mill = data_cache.get("dim_mill", pd.DataFrame())
@@ -1568,6 +1627,119 @@ async def get_recipe_planning(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# ---------- Recipe Planning Graph -----------------------------------------
+
+@app.get("/api/planning/recipe-graph")
+async def get_recipe_planning_graph(
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    horizon: Optional[str] = Query("month", pattern="^(week|month|year)$"),
+    scenario: Optional[str] = Query("base"),
+):
+    """
+    Recipe Planning Graph Data
+    Returns simple graph data: labels, planned hours, available hours
+    """
+    try:
+        scenario = scenario or "base"
+        m = _mult(scenario)
+        from_dt, to_dt = _date_range(from_date, to_date)
+
+        # ── Get Planned Recipe Hours ───────────────────────────────
+        sched = data_cache.get("fact_schedule", pd.DataFrame()).copy()
+        if sched.empty:
+            return {"labels": [], "planned": [], "available": []}
+        
+        sched = _filter_dates(sched, from_dt, to_dt)
+        sched = _add_period(sched, horizon)
+        
+        planned_hours = sched.groupby("period")["planned_hours"].sum().reset_index()
+        planned_hours["planned_recipe_hours"] = (planned_hours["planned_hours"] * m).round(2)
+
+        # ── Get Available Mill Hours ───────────────────────────────
+        cap = data_cache.get("fact_mill_capacity", pd.DataFrame()).copy()
+        if cap.empty:
+            return {"labels": [], "planned": [], "available": []}
+        
+        cap = _filter_dates(cap, from_dt, to_dt)
+        cap = _add_period(cap, horizon)
+        
+        available_hours = cap.groupby("period")["available_hours"].sum().reset_index()
+
+        # ── Merge Data for Graph ───────────────────────────────────
+        graph_data = planned_hours.merge(available_hours, on="period", how="outer").fillna(0)
+
+        # ── Return Simple Graph Structure ─────────────────────────────
+        return {
+            "labels": graph_data["period"].tolist(),
+            "planned": graph_data["planned_recipe_hours"].round(2).tolist(),
+            "available": graph_data["available_hours"].round(2).tolist(),
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ---------- Mill Capacity Chart -----------------------------------------
+
+@app.get("/api/capacity/mill-chart")
+async def get_mill_capacity_chart(
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    horizon: Optional[str] = Query("month", pattern="^(week|month|year)$"),
+    mill_id: Optional[str] = None,
+    scenario: Optional[str] = Query("base"),
+):
+    """
+    Mill Capacity Chart Data
+    Returns chart data comparing planned vs available hours by mill
+    """
+    try:
+        scenario = scenario or "base"
+        m = _mult(scenario)
+
+        sched = data_cache.get("fact_schedule", pd.DataFrame()).copy()
+        cap = data_cache.get("fact_mill_capacity", pd.DataFrame()).copy()
+
+        if cap.empty:
+            return {"labels": [], "available": [], "planned": []}
+
+        from_dt, to_dt = _date_range(from_date, to_date)
+        sched = _filter_dates(sched, from_dt, to_dt)
+        cap = _filter_dates(cap, from_dt, to_dt)
+
+        # Filter by specific mill if provided
+        if mill_id:
+            sched = sched[sched["mill_id"] == mill_id]
+            cap = cap[cap["mill_id"] == mill_id]
+
+        if not sched.empty:
+            daily_sched = sched.groupby(["date", "mill_id"]).agg(
+                planned_hours=("planned_hours", "sum"),
+            ).reset_index()
+        else:
+            daily_sched = pd.DataFrame(columns=["date", "mill_id", "planned_hours"])
+
+        # Merge schedule with capacity data
+        merged = cap.merge(daily_sched, on=["date", "mill_id"], how="left")
+        merged["planned_hours"] = merged["planned_hours"].fillna(0) * m
+
+        # Add period grouping
+        merged = _add_period(merged, horizon)
+
+        # Aggregate by period
+        agg = merged.groupby("period").agg(
+            planned_hours=("planned_hours", "sum"),
+            available_hours=("available_hours", "sum"),
+        ).reset_index()
+
+        return {
+            "labels": agg["period"].tolist(),
+            "planned": agg["planned_hours"].round(2).tolist(),
+            "available": agg["available_hours"].round(2).tolist(),
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ---------- Recipe Eligibility Matrix -------------------------------------
 
@@ -1603,7 +1775,7 @@ async def get_recipe_eligibility():
 async def get_mill_capacity(
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
-    horizon: Optional[str] = Query(None, pattern="^(week|month|year)$"),
+    horizon: Optional[str] = Query(None, pattern="^(day|week|month|year)$"),
     period: Optional[str] = None,
     mill_id: Optional[str] = None,
     scenario: Optional[str] = Query("base"),
@@ -1623,8 +1795,9 @@ async def get_mill_capacity(
         cap = _filter_dates(cap, from_dt, to_dt)
 
         if mill_id:
-            sched = sched[sched["mill_id"] == mill_id]
-            cap = cap[cap["mill_id"] == mill_id]
+            mill_ids = [m.strip() for m in mill_id.split(",")]
+            sched = sched[sched["mill_id"].isin(mill_ids)]
+            cap = cap[cap["mill_id"].isin(mill_ids)]
 
         # Aggregate schedule to daily mill level
         if not sched.empty:
@@ -1634,10 +1807,16 @@ async def get_mill_capacity(
         else:
             daily_sched = pd.DataFrame(columns=["date", "mill_id", "scheduled_hours"])
 
+        # Use left merge on capacity to ensure all mills with capacity data are included
+        # even if they have no scheduled hours
         merged = cap.merge(daily_sched, on=["date", "mill_id"], how="left")
         merged["scheduled_hours"] = merged["scheduled_hours"].fillna(0) * m
 
-        merged = _add_period(merged, horizon or "month")
+        # If horizon is "day", use date as period
+        if horizon == "day":
+            merged["period"] = merged["date"].dt.strftime("%Y-%m-%d")
+        else:
+            merged = _add_period(merged, horizon or "month")
 
         agg = merged.groupby(["period", "mill_id"]).agg(
             scheduled_hours=("scheduled_hours", "sum"),
@@ -1653,7 +1832,12 @@ async def get_mill_capacity(
 
         dim_mill = data_cache.get("dim_mill", pd.DataFrame())
         if not dim_mill.empty:
-            agg = agg.merge(dim_mill, on="mill_id", how="left")
+            # Explicitly select mill_name to ensure it's included
+            mill_cols = ["mill_id", "mill_name"] if "mill_name" in dim_mill.columns else ["mill_id"]
+            agg = agg.merge(dim_mill[mill_cols], on="mill_id", how="left")
+        else:
+            # Fallback: use mill_id as mill_name if dim_mill is empty
+            agg["mill_name"] = agg["mill_id"]
 
         if period:
             agg = agg[agg["period"] == period]
@@ -1711,12 +1895,15 @@ async def get_raw_material(
     scenario: Optional[str] = Query("base"),
 ):
     try:
-        rp = data_cache.get("raw_material_prices", pd.DataFrame()).copy()
+        from_dt, to_dt = _date_range(from_date, to_date)
+        
+        # Generate raw material prices inline for date range
+        import data_generator as dg
+        time_dim_range = _generate_time_dimension_extended(from_dt, to_dt)
+        rp = dg.generate_raw_material_prices(time_dim_range)
+        
         if rp.empty:
             return {"data": []}
-
-        from_dt, to_dt = _date_range(from_date, to_date)
-        rp = _filter_dates(rp, from_dt, to_dt)
 
         if country:
             rp = rp[rp["country"].str.contains(country, case=False, na=False)]
@@ -1945,8 +2132,8 @@ async def download_report_csv(
             "capacity_hours": "Capacity (Hours)",
             "available_hours": "Available Hours",
             "overload_hours": "Overload Hours",
-            "forecast_tons": "Forecast (Tons)",
-            "forecast_units": "Forecast (Units)",
+            "demand_tons": "Demand (Tons)",
+            "demand_units": "Demand (Units)",
             "price_sar_per_ton": "Price (SAR/Ton)",
             "price": "Price",
             "required_tons": "Required Tons",
@@ -2136,8 +2323,8 @@ async def send_report_email(
             "capacity_hours": "Capacity (Hours)",
             "available_hours": "Available Hours",
             "overload_hours": "Overload Hours",
-            "forecast_tons": "Forecast (Tons)",
-            "forecast_units": "Forecast (Units)",
+            "demand_tons": "Demand (Tons)",
+            "demand_units": "Demand (Units)",
             "price_sar_per_ton": "Price (SAR/Ton)",
             "price": "Price",
             "required_tons": "Required Tons",

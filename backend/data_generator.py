@@ -6,9 +6,9 @@ updated dimensional model with REALISTIC values validated against:
 
   • MC4 (Fourth Milling Company) actual capacities:
     – Dammam: 1,350 TPD wheat grinding, 80K ton silos
-    – Medina: 1,200 TPD wheat grinding, 60K ton silos
-    – Al-Kharj: 600 TPD wheat grinding, 10K ton silos
-    – Total: 3,150 TPD wheat → ~2,400 TPD flour output
+    – Medina: 1,270 TPD wheat grinding, 60K ton silos
+    – Al-Kharj: 640 TPD wheat grinding, 10K ton silos
+    – Total: 3,260 TPD wheat → ~2,480 TPD flour output
 
   • Real wheat import prices (USD/ton × 3.75 SAR/USD + freight)
   • Real import source countries (AU, CA, US, AR, DE, RO)
@@ -64,7 +64,7 @@ WASTE_TARGET_PCT = 2.5
 
 def generate_time_dimension():
     start_date = "2020-01-01"
-    end_date = "2026-02-10"
+    end_date = "2026-02-14"  # Actual data ends here, forecasts start after
     dates = pd.date_range(start_date, end_date, freq="D")
 
     df = pd.DataFrame({"date": dates})
@@ -122,8 +122,8 @@ def generate_dim_mill():
     """
     MC4 mills from https://www.mc4.com.sa/:
       Dammam  — 1,350 TPD wheat, 80K ton silo, 450 TPD feed capacity
-      Medina  — 1,200 TPD wheat, 60K ton silo
-      Al-Kharj — 600 TPD wheat, 10K ton silo (upgraded 2016)
+      Medina  — 1,270 TPD wheat, 60K ton silo
+      Al-Kharj — 640 TPD wheat, 10K ton silo (upgraded 2016)
     Operating hours: Modern mills run 22h/day with 2h maintenance/cleaning.
     Al-Kharj (smaller/older): 20h/day.
     """
@@ -135,13 +135,13 @@ def generate_dim_mill():
          "energy_efficiency_index": 85, "water_efficiency_index": 82,
          "silo_capacity_tons": 80000, "feed_capacity_tpd": 450},
         {"mill_id": "M2", "mill_name": "Medina Mill", "location": "Medina",
-         "wheat_capacity_tpd": 1200,
+         "wheat_capacity_tpd": 1270,
          "max_hours_per_day": 22, "planned_days_per_month": 28,
          "max_monthly_hours": 616, "is_active": True,
          "energy_efficiency_index": 80, "water_efficiency_index": 76,
          "silo_capacity_tons": 60000, "feed_capacity_tpd": 0},
         {"mill_id": "M3", "mill_name": "Al-Kharj Mill", "location": "Central Region",
-         "wheat_capacity_tpd": 600,
+         "wheat_capacity_tpd": 640,
          "max_hours_per_day": 20, "planned_days_per_month": 26,
          "max_monthly_hours": 520, "is_active": True,
          "energy_efficiency_index": 72, "water_efficiency_index": 70,
@@ -224,7 +224,7 @@ def generate_dim_sku():
     Pack sizes match Saudi market norms: 45kg wholesale, 10kg retail, 1kg retail.
 
     Base daily demand targets ~2,000 tons/day flour (stored in forecast generator).
-    MC4 total flour output capacity: ~2,400 tons/day → ~83% utilization baseline.
+    MC4 total flour output capacity: ~2,480 tons/day → ~83% utilization baseline.
     """
     return pd.DataFrame([
         # FOOM brand — Fortified Patent (FT001)
@@ -374,15 +374,15 @@ def generate_map_recipe_mill(dim_mill, dim_recipe):
 
     Rates proportional to actual MC4 mill wheat capacities:
       Dammam (1,350 TPD):  factor ≈ 1.25  (largest mill)
-      Medina (1,200 TPD):  factor ≈ 1.05  (medium mill)
-      Al-Kharj (600 TPD):  factor ≈ 0.55  (smallest mill)
+      Medina (1,270 TPD):  factor ≈ 1.12  (medium mill)
+      Al-Kharj (640 TPD):  factor ≈ 0.59  (smallest mill)
 
     max_rate_tph = recipe base rate × mill factor × small random variation
     """
     mill_capacity_factor = {
         "M1": 1.25,   # Dammam — 1,350 TPD
-        "M2": 1.05,   # Medina — 1,200 TPD
-        "M3": 0.55,   # Al-Kharj — 600 TPD
+        "M2": 1.12,   # Medina — 1,270 TPD
+        "M3": 0.59,   # Al-Kharj — 640 TPD
     }
 
     rows = []
@@ -464,17 +464,19 @@ def generate_map_wheat_country():
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ---------------------------------------------------------------------- 12
-def generate_fact_sku_forecast(time_dim, dim_sku):
+def generate_fact_sku_actuals(time_dim, dim_sku):
     """
-    Daily SKU forecast (vectorised cross-join).
-
+    Generate ACTUAL historical SKU demand data (not forecasts).
+    This represents actual demand that occurred in the past.
+    
+    Data ends at 2026-02-14. Forecasts will be generated separately after this date.
+    
     Base demand calibrated to MC4 total flour capacity:
-      3,150 TPD wheat × ~76% extraction ≈ 2,400 TPD flour max.
-      Base demand target: ~2,000 TPD flour (≈83% utilization).
+      3,260 TPD wheat × ~76% extraction ≈ 2,480 TPD flour max.
+      Base demand target: ~2,000 TPD flour (≈81% utilization).
 
     Ramadan multiplier: 1.35× (30-40% demand increase — realistic)
     Hajj multiplier:    1.25× (20-30% increase, mainly western region)
-    (Previous 2.5× and 1.8× were unrealistically high.)
     """
     # Base demand in TONS per day per SKU — totals ~2,000 TPD flour
     base_demand = {
@@ -517,7 +519,10 @@ def generate_fact_sku_forecast(time_dim, dim_sku):
     n = len(df)
     df["noise"] = 1 + np.random.normal(0, 0.05, n)  # ±5% daily noise
 
-    df["forecast_tons"] = (
+    # Generate ACTUAL demand (not forecast) - this is historical actual data
+    # Note: Column names use "demand" (not "forecast") to accurately reflect
+    # that this table contains both actual historical demand and future forecasts
+    df["demand_tons"] = (
         df["base"]
         * (1 + df["seasonal"])
         * df["event_mult"]
@@ -526,12 +531,13 @@ def generate_fact_sku_forecast(time_dim, dim_sku):
         * df["noise"]
     ).clip(lower=0).round(2)
 
-    df["forecast_units"] = (df["forecast_tons"] * 1000 / df["pack_size_kg"]).round(0).astype(int)
-    df["confidence_pct"] = np.random.uniform(0.80, 0.95, n).round(2)
+    df["demand_units"] = (df["demand_tons"] * 1000 / df["pack_size_kg"]).round(0).astype(int)
+    # For actual data, confidence is 1.0 (100%) since it's what actually happened
+    df["confidence_pct"] = 1.0
     df["seasonality_index"] = ((1 + df["seasonal"]) * df["event_mult"]).round(2)
     df["scenario_id"] = "base"
 
-    return df[["sku_id", "date", "forecast_tons", "forecast_units",
+    return df[["sku_id", "date", "demand_tons", "demand_units",
                "confidence_pct", "seasonality_index", "scenario_id"]]
 
 
@@ -541,7 +547,7 @@ def derive_fact_bulk_flour_requirement(fact_sku_forecast, dim_sku):
     df = fact_sku_forecast.merge(dim_sku[["sku_id", "flour_type_id"]], on="sku_id")
     result = (
         df.groupby(["date", "flour_type_id"])
-        .agg(required_tons=("forecast_tons", "sum"))
+        .agg(required_tons=("demand_tons", "sum"))
         .reset_index()
     )
     result["scenario_id"] = "base"
@@ -993,7 +999,7 @@ def generate_fact_kpi_snapshot(
         rp = raw_material_prices[rpmask]
 
         # ===== EXECUTIVE KPIs ================================================
-        total_demand = float(fcast["forecast_tons"].sum())
+        total_demand = float(fcast["demand_tons"].sum())
         prev_demand = prev.get("total_demand_tons", total_demand)
         demand_delta = ((total_demand - prev_demand) / prev_demand * 100) if prev_demand else 0
         _add("total_demand_tons", period, total_demand, demand_delta, "SKU forecast", "positive" if demand_delta >= 0 else "negative")
@@ -1031,7 +1037,7 @@ def generate_fact_kpi_snapshot(
         _add("vision_2030_index", period, v2030, v2030 - prev.get("vision_2030_index", v2030), "Sustainability", "positive" if v2030 >= 75 else "negative")
 
         # ===== DEMAND → RECIPE KPIs ==========================================
-        total_units = int(fcast["forecast_units"].sum())
+        total_units = int(fcast["demand_units"].sum())
         _add("total_sku_forecast_units", period, total_units, 0, "Forecast", "neutral")
 
         bulk_req = float(bflour["required_tons"].sum())
@@ -1134,9 +1140,9 @@ def generate_all_data(output_dir="datasets"):
     os.makedirs(output_dir, exist_ok=True)
 
     # ---- Time dimension ---------------------------------------------------
-    print("  Generating time dimension …")
+    print("  Generating time dimension (internal use only, not saved) …")
     time_dim = generate_time_dimension()
-    time_dim.to_csv(f"{output_dir}/time_dimension.csv", index=False)
+    # Time dimension is used internally but not saved as separate dataset
 
     # ---- Layer 1: Master data ---------------------------------------------
     print("  Layer 1 — Master tables …")
@@ -1171,19 +1177,17 @@ def generate_all_data(output_dir="datasets"):
     # ---- Layer 3: Fact / Transactional ------------------------------------
     print("  Layer 3 — Fact tables …")
 
-    print("    → fact_sku_forecast …")
-    fact_sku_forecast = generate_fact_sku_forecast(time_dim, dim_sku)
+    print("    → fact_sku_forecast (ACTUAL historical data only, ends 2026-02-14) …")
+    fact_sku_forecast = generate_fact_sku_actuals(time_dim, dim_sku)
     fact_sku_forecast.to_csv(f"{output_dir}/fact_sku_forecast.csv", index=False)
 
     print("    → fact_bulk_flour_requirement …")
     fact_bulk_flour = derive_fact_bulk_flour_requirement(fact_sku_forecast, dim_sku)
     fact_bulk_flour.to_csv(f"{output_dir}/fact_bulk_flour_requirement.csv", index=False)
 
-    print("    → dynamic recipe mix …")
-    recipe_mix = compute_dynamic_recipe_mix(time_dim, map_flour_recipe)
-    recipe_mix.to_csv(f"{output_dir}/recipe_mix.csv", index=False)
-
     print("    → fact_recipe_demand …")
+    # Compute recipe mix inline (not saved as separate dataset)
+    recipe_mix = compute_dynamic_recipe_mix(time_dim, map_flour_recipe)
     fact_recipe_demand = derive_fact_recipe_demand(fact_bulk_flour, recipe_mix, dim_recipe)
     fact_recipe_demand.to_csv(f"{output_dir}/fact_recipe_demand.csv", index=False)
 
@@ -1211,9 +1215,8 @@ def generate_all_data(output_dir="datasets"):
     fact_waste = generate_fact_waste_metrics(fact_schedule, dim_recipe, dim_mill)
     fact_waste.to_csv(f"{output_dir}/fact_waste_metrics.csv", index=False)
 
-    print("    → raw_material_prices …")
+    # Generate raw material prices inline (not saved as separate dataset)
     raw_prices = generate_raw_material_prices(time_dim)
-    raw_prices.to_csv(f"{output_dir}/raw_material_prices.csv", index=False)
 
     # ---- Layer 4: KPI Snapshot --------------------------------------------
     print("  Layer 4 — KPI snapshot …")
@@ -1228,8 +1231,10 @@ def generate_all_data(output_dir="datasets"):
     # ---- Summary ----------------------------------------------------------
     print("\n ✅ All MC4 v4 data generated successfully (VALIDATED)!")
     print(f"   Output: {output_dir}/")
+    print(f"   ⚠️  NOTE: Actual historical data ends at 2026-02-14")
+    print(f"   ⚠️  NOTE: Forecasts will be generated separately after this date")
     print(f"   Time dimension     : {len(time_dim):>10,}")
-    print(f"   SKU forecast       : {len(fact_sku_forecast):>10,}")
+    print(f"   SKU actuals (historical): {len(fact_sku_forecast):>10,} (ends 2026-02-14)")
     print(f"   Bulk flour req     : {len(fact_bulk_flour):>10,}")
     print(f"   Recipe demand      : {len(fact_recipe_demand):>10,}")
     print(f"   Mill capacity      : {len(fact_mill_capacity):>10,}")
@@ -1241,10 +1246,10 @@ def generate_all_data(output_dir="datasets"):
     print(f"   Raw material prices: {len(raw_prices):>10,}")
 
     # ---- Validation summary -----------------------------------------------
-    daily_flour = fact_sku_forecast.groupby("date")["forecast_tons"].sum()
+    daily_flour = fact_sku_forecast.groupby("date")["demand_tons"].sum()
     print(f"\n   📊 Validation checks:")
     print(f"   Daily flour demand avg : {daily_flour.mean():>10,.0f} tons (target: ~2,000)")
-    print(f"   Daily flour demand max : {daily_flour.max():>10,.0f} tons (capacity: ~2,400)")
+    print(f"   Daily flour demand max : {daily_flour.max():>10,.0f} tons (capacity: ~2,480)")
     print(f"   Wheat cost range       :   {fact_wheat_req['avg_cost'].min():.0f} - {fact_wheat_req['avg_cost'].max():.0f} SAR/ton")
     print(f"   Waste rate range       :   {fact_waste['waste_pct'].min():.1f}% - {fact_waste['waste_pct'].max():.1f}%")
     print(f"   Energy per ton range   :   {fact_waste['energy_per_ton'].min():.0f} - {fact_waste['energy_per_ton'].max():.0f} kWh/ton")

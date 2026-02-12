@@ -1,16 +1,33 @@
+# FastAPI Server Dependencies
 fastapi
 uvicorn[standard]
+pydantic
+
+# Data Processing
 pandas
 numpy
+
+# Forecasting Models
 prophet
 cmdstanpy
 statsmodels
 scikit-learn
+xgboost
+
+# Environment & Configuration
 python-dotenv
-pydantic
+
+# Visualization
 matplotlib
+
+# LLM & Text2SQL Chatbot
 langchain
 langchain-openai
 langchain-google-genai
+
+# Email Service
 sendgrid
 certifi
+
+# Legacy (if needed for compatibility)
+flask
