@@ -3,7 +3,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ChartContainer } from "@/components/dashboard/ChartContainer";
 import { useFilters } from "@/context/FilterContext";
 import { downloadReportCsv, emailReport } from "@/lib/api";
-import { Mail, Download, Send, Loader2, ClipboardList, Gauge, TrendingUp, Package } from "lucide-react";
+import { Download, Send, Loader2, ClipboardList, Gauge, TrendingUp, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -170,15 +170,6 @@ export default function Reports() {
               </div>
             </div>
 
-            <div className="mt-4 rounded-lg bg-accent p-4 border border-primary/30">
-              <div className="flex items-center gap-2 text-xs">
-                <Mail className="h-3.5 w-3.5 text-primary" />
-                <span className="font-medium text-foreground">Email delivery</span>
-              </div>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Reports are sent via the backend email service (SendGrid). Configure SENDGRID_API_KEY and ALERT_EMAIL environment variables on the server.
-              </p>
-            </div>
           </div>
         </ChartContainer>
       </div>
