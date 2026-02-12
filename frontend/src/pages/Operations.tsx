@@ -31,7 +31,6 @@ function periodToDate(period: string): Date | null {
     const [, y, m] = monthMatch;
     return new Date(Number(y), Number(m) - 1, 1);
   }
-  const weekMatch = period.match(/^(\d{4})-W(\d{2})$/);
   if (weekMatch) {
     const [, y, w] = weekMatch;
     const jan1 = new Date(Number(y), 0, 1);
@@ -42,12 +41,40 @@ function periodToDate(period: string): Date | null {
   return null;
 }
 
+function getPeriodRange(period: string): { start: Date; end: Date } | null {
+  const start = periodToDate(period);
+  if (!start) return null;
+
+  const monthMatch = period.match(/^(\d{4})-(\d{2})$/);
+  if (monthMatch) {
+    // End of month
+    const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  }
+
+  const weekMatch = period.match(/^(\d{4})-W(\d{2})$/);
+  if (weekMatch) {
+    // End of week (6 days after start)
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  }
+
+  return { start, end: start };
+}
+
 function isPeriodInRange(period: string, from: Date, to: Date): boolean {
-  const d = periodToDate(period);
-  if (!d) return true;
-  const fromStart = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const range = getPeriodRange(period);
+  if (!range) return true;
+
+  // Check for any overlap
+  const fromStart = new Date(from.getFullYear(), from.getMonth(), from.getDate()); // 00:00
   const toEnd = new Date(to.getFullYear(), to.getMonth(), to.getDate());
-  return d >= fromStart && d <= toEnd;
+  toEnd.setHours(23, 59, 59, 999); // End of day
+
+  return range.start <= toEnd && range.end >= fromStart;
 }
 
 interface ScheduleRow {
@@ -71,19 +98,19 @@ interface CapacityRow {
 
 const RECIPE_COLORS: Record<string, string> = {
   // Actual recipe names from data
-  "Bakery Standard":  "#2563EB",   // vivid blue
-  "Patent Blend":     "#F59E0B",   // amber / gold
-  "Brown Flour":      "#92400E",   // rich brown
-  "Standard Blend":   "#10B981",   // emerald green
-  "Premium Patent":   "#8B5CF6",   // violet / purple
-  "Whole Wheat":      "#D97706",   // deep orange
-  "Pastry Flour":     "#EC4899",   // pink
-  "Cake Flour":       "#06B6D4",   // cyan
+  "Bakery Standard": "#2563EB",   // vivid blue
+  "Patent Blend": "#F59E0B",   // amber / gold
+  "Brown Flour": "#92400E",   // rich brown
+  "Standard Blend": "#10B981",   // emerald green
+  "Premium Patent": "#8B5CF6",   // violet / purple
+  "Whole Wheat": "#D97706",   // deep orange
+  "Pastry Flour": "#EC4899",   // pink
+  "Cake Flour": "#06B6D4",   // cyan
   // Legacy / alternate names
-  "80 Straight":      "#D85B2B",   // burnt orange
-  "80/70 Blend":      "#F2A85C",   // peach
-  "72/60 Blend":      "#0EA5E9",   // sky blue
-  "Special Blend":    "#E11D48",   // rose red
+  "80 Straight": "#D85B2B",   // burnt orange
+  "80/70 Blend": "#F2A85C",   // peach
+  "72/60 Blend": "#0EA5E9",   // sky blue
+  "Special Blend": "#E11D48",   // rose red
 };
 
 // Distinct palette for any recipe not in the map
@@ -147,12 +174,12 @@ export default function Operations() {
 
   const opsKpis = kpis
     ? [
-        { label: "Mill Utilization", value: kpis.mill_utilization_pct.toFixed(1), unit: "%", delta: kpis.mill_utilization_pct > 90 ? -1.3 : 1.3, driver: "Across all mills" },
-        { label: "Overload Hours", value: kpis.overload_hours.toFixed(0), unit: "hrs", delta: kpis.overload_hours > 0 ? -kpis.overload_hours : 0, driver: "Total overload" },
-        { label: "Recipe Switches", value: kpis.recipe_switch_count.toString(), delta: 0, driver: "Total changeovers" },
-        { label: "Avg Run Length", value: kpis.avg_run_length_days.toString(), unit: "days", delta: 0.2, driver: "Average consecutive days" },
-        { label: "Downtime Risk", value: kpis.downtime_risk_score.toFixed(0), unit: "/100", delta: kpis.downtime_risk_score > 50 ? -5 : 0, driver: kpis.downtime_risk_score > 50 ? "Elevated risk" : "Acceptable" },
-      ]
+      { label: "Mill Utilization", value: kpis.mill_utilization_pct.toFixed(1), unit: "%", delta: kpis.mill_utilization_pct > 90 ? -1.3 : 1.3, driver: "Across all mills" },
+      { label: "Overload Hours", value: kpis.overload_hours.toFixed(0), unit: "hrs", delta: kpis.overload_hours > 0 ? -kpis.overload_hours : 0, driver: "Total overload" },
+      { label: "Recipe Switches", value: kpis.recipe_switch_count.toString(), delta: 0, driver: "Total changeovers" },
+      { label: "Avg Run Length", value: kpis.avg_run_length_days.toString(), unit: "days", delta: 0.2, driver: "Average consecutive days" },
+      { label: "Downtime Risk", value: kpis.downtime_risk_score.toFixed(0), unit: "/100", delta: kpis.downtime_risk_score > 50 ? -5 : 0, driver: kpis.downtime_risk_score > 50 ? "Elevated risk" : "Acceptable" },
+    ]
     : [];
 
   // Create mill_id to mill_name mapping from capacity data
@@ -201,12 +228,42 @@ export default function Operations() {
     return timelineGrid.dates.slice(start, start + timelineRowsPerPage);
   }, [timelineGrid.dates, timelinePage, timelineRowsPerPage]);
 
-  // Filter capacity by ledger date range when set
+  // Filter capacity by ledger date range when set, and prorate values based on overlap
   const capacityForLedger = useMemo(() => {
     if (!ledgerDateRange?.from || !ledgerDateRange?.to) return capacity;
-    return capacity.filter((row) =>
-      isPeriodInRange(row.period || "", ledgerDateRange.from!, ledgerDateRange.to!)
-    );
+
+    const fromTime = new Date(ledgerDateRange.from).setHours(0, 0, 0, 0);
+    const toTime = new Date(ledgerDateRange.to).setHours(23, 59, 59, 999);
+
+    return capacity
+      .map((row) => {
+        const range = getPeriodRange(row.period || "");
+        if (!range) return row; // Keep original if parsing fails
+
+        const pStart = range.start.getTime();
+        const pEnd = range.end.getTime();
+
+        // Calculate overlap
+        const overlapStart = Math.max(pStart, fromTime);
+        const overlapEnd = Math.min(pEnd, toTime);
+
+        if (overlapStart > overlapEnd) return null; // No overlap
+
+        // Calculate ratio
+        const periodDuration = pEnd - pStart + 1;
+        const overlapDuration = overlapEnd - overlapStart + 1;
+        const ratio = Math.max(0, Math.min(1, overlapDuration / periodDuration));
+
+        if (ratio >= 0.99) return row; // almost full overlap, keep original
+
+        return {
+          ...row,
+          available_hours: row.available_hours * ratio,
+          scheduled_hours: row.scheduled_hours * ratio,
+          overload_hours: row.overload_hours * ratio,
+        };
+      })
+      .filter((row): row is CapacityRow => row !== null);
   }, [capacity, ledgerDateRange]);
 
   // Build ledger from (possibly filtered) capacity data
