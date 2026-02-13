@@ -316,7 +316,7 @@ export function ProductionPlanningTrendChart({ className, title }: ProductionPla
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={chartData.data}
-              margin={{ top: 20, right: 24, left: 16, bottom: 8 }}
+              margin={{ top: 20, right: 24, left: 16, bottom: 60 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis
@@ -392,7 +392,7 @@ export function ProductionPlanningTrendChart({ className, title }: ProductionPla
                   if (!hasHistorical && !hasForecasted) return null;
 
                   return (
-                    <div className="flex items-center justify-center gap-x-4 pt-4 pb-1">
+                    <div className="flex items-center justify-center gap-x-4 pt-2 pb-1">
                       {/* Metric Type Legend */}
                       <div className="inline-flex items-center gap-4 rounded-lg border border-border/70 bg-muted/30 px-3.5 py-2 shadow-sm">
                         <div className="flex items-center gap-2">
