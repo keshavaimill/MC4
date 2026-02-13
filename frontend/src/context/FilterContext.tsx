@@ -38,15 +38,15 @@ const HISTORICAL_END_DATE = new Date("2026-02-14");
 export type DataHorizon = "day" | "week" | "month" | "year";
 
 /**
- * For custom date range: shorter period → daily, else monthly or yearly.
- * Use this project-wide so custom range always shows the right granularity.
+ * For custom date range (project-wide):
+ * ≤ 90 days → daily; > 90 and ≤ 365 days → monthly; > 365 days → yearly.
  */
 export function getHorizonForCustomRange(fromDate: string, toDate: string): DataHorizon {
   if (!fromDate || !toDate) return "month";
   const from = parseISO(fromDate);
   const to = parseISO(toDate);
   const days = differenceInDays(to, from) + 1;
-  if (days <= 31) return "day";
+  if (days <= 90) return "day";
   if (days <= 365) return "month";
   return "year";
 }
