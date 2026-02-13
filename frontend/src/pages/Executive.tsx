@@ -123,49 +123,49 @@ export default function Executive() {
 
   const executiveKpis = kpis
     ? [
-        {
-          label: "Total Demand",
-          value: kpis.demand.total_tons.toLocaleString(undefined, { maximumFractionDigits: 0 }),
-          unit: "tons",
-          delta: undefined,
-          driver: "Period-over-period change",
-        },
-        {
-          label: "Recipe Time Util.",
-          value: kpis.recipe_time.utilization_pct.toFixed(1),
-          unit: "%",
-          delta: undefined,
-          driver: `${kpis.recipe_time.total_hours.toLocaleString(undefined, { maximumFractionDigits: 0 })} total hrs`,
-        },
-        {
-          label: "Avg Wheat Price",
-          value: `SAR ${kpis.risk.avg_wheat_price.toFixed(0)}`,
-          unit: "",
-          delta: undefined,
-          driver: "Per-ton wheat cost",
-        },
-        {
-          label: "Waste Rate",
-          value: kpis.waste.waste_rate_pct.toFixed(1),
-          unit: "%",
-          delta: undefined,
-          driver: "vs previous period",
-        },
-        {
-          label: "Vision 2030 Score",
-          value: kpis.vision2030.score.toString(),
-          unit: "/100",
-          delta: undefined,
-          driver: "Sustainability composite",
-        },
-        {
-          label: "Capacity Violations",
-          value: kpis.capacity.overload_mills.toString(),
-          unit: "mills",
-          delta: undefined,
-          driver: `Utilization at ${kpis.capacity.utilization_pct.toFixed(1)}%`,
-        },
-      ]
+      {
+        label: "Total Demand",
+        value: kpis.demand.total_tons.toLocaleString(undefined, { maximumFractionDigits: 0 }),
+        unit: "tons",
+        delta: undefined,
+        driver: "Period-over-period change",
+      },
+      {
+        label: "Recipe Time Util.",
+        value: kpis.recipe_time.utilization_pct.toFixed(1),
+        unit: "%",
+        delta: undefined,
+        driver: `${kpis.recipe_time.total_hours.toLocaleString(undefined, { maximumFractionDigits: 0 })} total hrs`,
+      },
+      {
+        label: "Avg Wheat Price",
+        value: `SAR ${kpis.risk.avg_wheat_price.toFixed(0)}`,
+        unit: "",
+        delta: undefined,
+        driver: "Per-ton wheat cost",
+      },
+      {
+        label: "Waste Rate",
+        value: kpis.waste.waste_rate_pct.toFixed(1),
+        unit: "%",
+        delta: undefined,
+        driver: "vs previous period",
+      },
+      {
+        label: "Vision 2030 Score",
+        value: kpis.vision2030.score.toString(),
+        unit: "/100",
+        delta: undefined,
+        driver: "Sustainability composite",
+      },
+      {
+        label: "Capacity Violations",
+        value: kpis.capacity.overload_mills.toString(),
+        unit: "mills",
+        delta: undefined,
+        driver: `Utilization at ${kpis.capacity.utilization_pct.toFixed(1)}%`,
+      },
+    ]
     : [];
 
   // Build capacity heatmap from mill capacity data; use short period labels for weekly view
@@ -235,7 +235,7 @@ export default function Executive() {
       <SkuForecastTrendChart className="mb-6" />
 
       {/* Production Planning Chart - Full Width */}
-      <ProductionPlanningTrendChart className="mb-6" />
+      <ProductionPlanningTrendChart className="mb-6" title="Production Variance" />
 
       {/* Recipe Planning Chart */}
       <RecipePlanningChart className="mb-6" />

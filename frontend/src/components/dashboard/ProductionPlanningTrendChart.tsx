@@ -33,6 +33,8 @@ function capacityHorizonForFilter(periodFilter: string): "day" | "week" | "month
     case "quarter":
     case "year":
       return "month"; // Month-wise data for quarter and year filters
+    case "custom":
+      return "day"; // Daily data for custom filters
     default:
       return "month";
   }
@@ -390,31 +392,39 @@ export function ProductionPlanningTrendChart({ className, title }: ProductionPla
                   if (!hasHistorical && !hasForecasted) return null;
 
                   return (
-                    <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 pt-5 pb-1">
+                    <div className="flex items-center justify-center gap-x-4 pt-4 pb-1">
                       {/* Metric Type Legend */}
-                      <div className="inline-flex items-center gap-5 rounded-lg border border-border/70 bg-muted/30 px-4 py-2.5 shadow-sm">
-                        <div className="flex items-center gap-2.5">
-                          <div className="h-[3px] w-6 bg-foreground/80 rounded-full" />
-                          <span className="text-[11px] font-bold text-foreground">Planned Hours</span>
+                      <div className="inline-flex items-center gap-4 rounded-lg border border-border/70 bg-muted/30 px-3.5 py-2 shadow-sm">
+                        <div className="flex items-center gap-2">
+                          <svg className="h-[3px] w-6 text-foreground/80 overflow-visible" viewBox="0 0 24 3">
+                            <line x1="0" y1="1.5" x2="24" y2="1.5" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                          </svg>
+                          <span className="text-[11px] font-bold text-foreground whitespace-nowrap">Planned Hours</span>
                         </div>
-                        <div className="flex items-center gap-2.5">
-                          <div className="h-0 border-t-[3px] border-dashed border-foreground/80 w-6" />
-                          <span className="text-[11px] font-bold text-foreground">Available Mill Hours</span>
+                        <div className="flex items-center gap-2">
+                          <svg className="h-[3px] w-6 text-foreground/80 overflow-visible" viewBox="0 0 24 3">
+                            <line x1="0" y1="1.5" x2="24" y2="1.5" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeDasharray="5 5" />
+                          </svg>
+                          <span className="text-[11px] font-bold text-foreground whitespace-nowrap">Available Mill Hours</span>
                         </div>
                       </div>
 
                       {/* Time Type Legend */}
-                      <div className="inline-flex items-center gap-5 rounded-lg border border-border/70 bg-muted/30 px-4 py-2.5 shadow-sm">
+                      <div className="inline-flex items-center gap-4 rounded-lg border border-border/70 bg-muted/30 px-3.5 py-2 shadow-sm">
                         {hasHistorical && (
-                          <div className="flex items-center gap-2.5">
-                            <div className="h-3 w-3 rounded-full bg-[#8B4513]" />
-                            <span className="text-[11px] font-bold text-foreground">Historical</span>
+                          <div className="flex items-center gap-2">
+                            <svg width="12" height="12" viewBox="0 0 12 12" className="overflow-visible">
+                              <circle cx="6" cy="6" r="4.5" fill="#8B4513" />
+                            </svg>
+                            <span className="text-[11px] font-bold text-foreground whitespace-nowrap">Historical</span>
                           </div>
                         )}
                         {hasForecasted && (
-                          <div className="flex items-center gap-2.5">
-                            <div className="h-3 w-3 rounded-full bg-[#FCD34D]" />
-                            <span className="text-[11px] font-bold text-foreground">Forecasted</span>
+                          <div className="flex items-center gap-2">
+                            <svg width="12" height="12" viewBox="0 0 12 12" className="overflow-visible">
+                              <circle cx="6" cy="6" r="4.5" fill="#FCD34D" />
+                            </svg>
+                            <span className="text-[11px] font-bold text-foreground whitespace-nowrap">Forecasted</span>
                           </div>
                         )}
                       </div>
