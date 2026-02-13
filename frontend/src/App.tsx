@@ -15,6 +15,12 @@ import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { FilterProvider } from "./context/FilterContext";
+import axios from "axios";
+
+// Configure axios base URL for production builds
+if (import.meta.env.VITE_API_BASE_URL) {
+  axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL;
+}
 
 const queryClient = new QueryClient();
 

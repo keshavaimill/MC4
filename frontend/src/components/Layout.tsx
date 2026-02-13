@@ -107,8 +107,8 @@ export default function Layout({
                 key={item.id}
                 onClick={() => setActiveScreen(item.id)}
                 className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 ease-out ${isActive
-                    ? 'bg-primary text-primary-foreground shadow-card'
-                    : 'text-foreground hover:bg-accent hover:text-primary'
+                  ? 'bg-primary text-primary-foreground shadow-card'
+                  : 'text-foreground hover:bg-accent hover:text-primary'
                   }`}
                 title={!sidebarOpen ? item.label : undefined}
               >

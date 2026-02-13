@@ -71,19 +71,19 @@ interface CapacityRow {
 
 const RECIPE_COLORS: Record<string, string> = {
   // Actual recipe names from data
-  "Bakery Standard":  "#2563EB",   // vivid blue
-  "Patent Blend":     "#F59E0B",   // amber / gold
-  "Brown Flour":      "#92400E",   // rich brown
-  "Standard Blend":   "#10B981",   // emerald green
-  "Premium Patent":   "#8B5CF6",   // violet / purple
-  "Whole Wheat":      "#D97706",   // deep orange
-  "Pastry Flour":     "#EC4899",   // pink
-  "Cake Flour":       "#06B6D4",   // cyan
+  "Bakery Standard": "#2563EB",   // vivid blue
+  "Patent Blend": "#F59E0B",   // amber / gold
+  "Brown Flour": "#92400E",   // rich brown
+  "Standard Blend": "#10B981",   // emerald green
+  "Premium Patent": "#8B5CF6",   // violet / purple
+  "Whole Wheat": "#D97706",   // deep orange
+  "Pastry Flour": "#EC4899",   // pink
+  "Cake Flour": "#06B6D4",   // cyan
   // Legacy / alternate names
-  "80 Straight":      "#D85B2B",   // burnt orange
-  "80/70 Blend":      "#F2A85C",   // peach
-  "72/60 Blend":      "#0EA5E9",   // sky blue
-  "Special Blend":    "#E11D48",   // rose red
+  "80 Straight": "#D85B2B",   // burnt orange
+  "80/70 Blend": "#F2A85C",   // peach
+  "72/60 Blend": "#0EA5E9",   // sky blue
+  "Special Blend": "#E11D48",   // rose red
 };
 
 // Distinct palette for any recipe not in the map
@@ -147,12 +147,12 @@ export default function Operations() {
 
   const opsKpis = kpis
     ? [
-        { label: "Mill Utilization", value: kpis.mill_utilization_pct.toFixed(1), unit: "%", delta: kpis.mill_utilization_pct > 90 ? -1.3 : 1.3, driver: "Across all mills" },
-        { label: "Overload Hours", value: kpis.overload_hours.toFixed(0), unit: "hrs", delta: kpis.overload_hours > 0 ? -kpis.overload_hours : 0, driver: "Total overload" },
-        { label: "Recipe Switches", value: kpis.recipe_switch_count.toString(), delta: 0, driver: "Total changeovers" },
-        { label: "Avg Run Length", value: kpis.avg_run_length_days.toString(), unit: "days", delta: 0.2, driver: "Average consecutive days" },
-        { label: "Downtime Risk", value: kpis.downtime_risk_score.toFixed(0), unit: "/100", delta: kpis.downtime_risk_score > 50 ? -5 : 0, driver: kpis.downtime_risk_score > 50 ? "Elevated risk" : "Acceptable" },
-      ]
+      { label: "Mill Utilization", value: kpis.mill_utilization_pct.toFixed(1), unit: "%", delta: kpis.mill_utilization_pct > 90 ? -1.3 : 1.3, driver: "Across all mills" },
+      { label: "Overload Hours", value: kpis.overload_hours.toFixed(0), unit: "hrs", delta: kpis.overload_hours > 0 ? -kpis.overload_hours : 0, driver: "Total overload" },
+      { label: "Recipe Switches", value: kpis.recipe_switch_count.toString(), delta: 0, driver: "Total changeovers" },
+      { label: "Avg Run Length", value: kpis.avg_run_length_days.toString(), unit: "days", delta: 0.2, driver: "Average consecutive days" },
+      { label: "Downtime Risk", value: kpis.downtime_risk_score.toFixed(0), unit: "/100", delta: kpis.downtime_risk_score > 50 ? -5 : 0, driver: kpis.downtime_risk_score > 50 ? "Elevated risk" : "Acceptable" },
+    ]
     : [];
 
   // Create mill_id to mill_name mapping from capacity data
@@ -506,7 +506,7 @@ export default function Operations() {
                         {payload.map((entry) => (
                           <div key={entry.value} className="flex items-center gap-2.5">
                             <span className="h-3 w-5 shrink-0 rounded-sm" style={{ backgroundColor: entry.color }} />
-                            <span className="text-xs font-semibold text-foreground whitespace-nowrap">{entry.value}</span>
+                            <span className="text-[11px] font-bold text-foreground whitespace-nowrap uppercase tracking-tight">{entry.value}</span>
                           </div>
                         ))}
                       </div>
@@ -514,8 +514,8 @@ export default function Operations() {
                   );
                 }}
               />
-              <Bar dataKey="available" name="Available Hours" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
               <Bar dataKey="planned" name="Planned Hours" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="available" name="Available Mill Hours" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

@@ -11,11 +11,14 @@ function qs(params: Record<string, string | undefined>): string {
   return "?" + new URLSearchParams(entries).toString();
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+
 async function get<T = unknown>(
   path: string,
   params: Record<string, string | undefined> = {}
 ): Promise<T> {
-  const res = await fetch(`${path}${qs(params)}`);
+  const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
+  const res = await fetch(`${url}${qs(params)}`);
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`API ${res.status}: ${text}`);
@@ -24,7 +27,8 @@ async function get<T = unknown>(
 }
 
 async function post<T = unknown>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(path, {
+  const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

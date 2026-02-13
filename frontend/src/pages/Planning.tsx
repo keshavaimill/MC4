@@ -10,16 +10,7 @@ import { Check, X, AlertTriangle, RotateCcw, Loader2, Download } from "lucide-re
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/PageLoader";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
+import { ProductionPlanningTrendChart } from "@/components/dashboard/ProductionPlanningTrendChart";
 
 interface EligibilityRow {
   recipe_id: string;
@@ -98,8 +89,8 @@ export default function Planning() {
   // Check if user has adjusted sliders (if totalHours differs from backend, user has made changes)
   const hasUserAdjustments = Math.abs(totalHours - backendPlannedHours) > 0.1;
   // Calculate slack/shortfall: use slider values if adjusted, otherwise use backend value
-  const slackShortfall = hasUserAdjustments 
-    ? totalCapacity - totalHours 
+  const slackShortfall = hasUserAdjustments
+    ? totalCapacity - totalHours
     : (kpis?.slack_shortfall_hours ?? (totalCapacity - totalHours));
   const overload = Math.max(0, totalHours - totalCapacity);
 
@@ -160,13 +151,13 @@ export default function Planning() {
 
   const planningKpis = kpis
     ? [
-        { label: "Planned Recipe Hours", value: Math.round(totalHours).toLocaleString(), unit: "hrs", driver: `vs capacity of ${totalCapacity.toLocaleString()} hrs` },
-        { label: "Available Mill Hours", value: Math.round(totalCapacity).toLocaleString(), unit: "hrs", driver: "Period capacity" },
-        { label: "Slack / Shortfall", value: Math.round(slackShortfall).toLocaleString(), unit: "hrs", driver: slackShortfall < 0 ? "Shortfall (overload)" : "Slack within capacity" },
-        { label: "Wheat Cost Index", value: kpis.wheat_cost_index.toFixed(0), unit: "SAR", driver: "Weighted avg cost" },
-        { label: "Waste Impact", value: kpis.waste_impact_pct.toFixed(1), unit: "%", delta: -kpis.waste_impact_pct, driver: "Period waste rate" },
-        { label: "Cost Impact", value: `${effectiveCostImpact > 0 ? "+" : ""}${effectiveCostImpact.toFixed(1)}`, unit: "%", delta: effectiveCostImpact, driver: `Baseline ${(kpis.cost_impact_pct ?? 0).toFixed(1)}% + slider adj` },
-      ]
+      { label: "Planned Recipe Hours", value: Math.round(totalHours).toLocaleString(), unit: "hrs", driver: `vs capacity of ${totalCapacity.toLocaleString()} hrs` },
+      { label: "Available Mill Hours", value: Math.round(totalCapacity).toLocaleString(), unit: "hrs", driver: "Period capacity" },
+      { label: "Slack / Shortfall", value: Math.round(slackShortfall).toLocaleString(), unit: "hrs", driver: slackShortfall < 0 ? "Shortfall (overload)" : "Slack within capacity" },
+      { label: "Wheat Cost Index", value: kpis.wheat_cost_index.toFixed(0), unit: "SAR", driver: "Weighted avg cost" },
+      { label: "Waste Impact", value: kpis.waste_impact_pct.toFixed(1), unit: "%", delta: -kpis.waste_impact_pct, driver: "Period waste rate" },
+      { label: "Cost Impact", value: `${effectiveCostImpact > 0 ? "+" : ""}${effectiveCostImpact.toFixed(1)}`, unit: "%", delta: effectiveCostImpact, driver: `Baseline ${(kpis.cost_impact_pct ?? 0).toFixed(1)}% + slider adj` },
+    ]
     : [];
 
   if (loading) {
@@ -192,56 +183,7 @@ export default function Planning() {
       </div>
 
       {/* Production Variance Chart */}
-      <ChartContainer title="Production Variance" subtitle="Planned vs available capacity (hours)" className="mb-6">
-        <div className="h-[260px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={[
-                {
-                  name: "Capacity",
-                  planned: Math.round(totalHours),
-                  available: Math.round(totalCapacity),
-                  variance: Math.round(totalCapacity - totalHours),
-                },
-              ]}
-              margin={{ top: 16, right: 24, left: 16, bottom: 8 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-              <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={{ stroke: 'hsl(var(--border))' }} tickLine={{ stroke: 'hsl(var(--border))' }} />
-              <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v)} axisLine={{ stroke: 'hsl(var(--border))' }} tickLine={{ stroke: 'hsl(var(--border))' }} />
-              <RechartsTooltip
-                contentStyle={{ borderRadius: 8, border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', fontSize: 12, boxShadow: '0 4px 16px hsl(var(--foreground) / 0.06)' }}
-                formatter={(value: number) => [value.toLocaleString(), ""]}
-                labelFormatter={() => "Hours"}
-              />
-              <Legend
-                content={({ payload }) => {
-                  if (!payload?.length) return null;
-                  return (
-                    <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-5 pb-1">
-                      <div className="inline-flex flex-wrap items-center justify-center gap-x-6 gap-y-2 rounded-lg border border-border/70 bg-muted/30 px-4 py-2.5 shadow-sm">
-                        {payload.map((entry) => (
-                          <div key={entry.value} className="flex items-center gap-2.5">
-                            <span
-                              className="h-3 w-5 shrink-0 rounded-sm"
-                              style={{ backgroundColor: entry.color }}
-                            />
-                            <span className="text-xs font-semibold text-foreground whitespace-nowrap">
-                              {entry.value}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                }}
-              />
-              <Bar dataKey="planned" name="Planned Hours" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="available" name="Available Hours" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </ChartContainer>
+      <ProductionPlanningTrendChart className="mb-6" title="Production Variance" />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
         {/* Left Column: Eligibility Matrix and Live Impact */}
