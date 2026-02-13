@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useMemo, useEffect } from "react";
-import { format, subMonths, addMonths, startOfMonth, endOfMonth, parseISO } from "date-fns";
+import { format, subMonths, addMonths, startOfMonth, endOfMonth, parseISO, differenceInDays } from "date-fns";
 import { DateRange } from "react-day-picker";
 
 export type Horizon = "week" | "month" | "year";
@@ -33,6 +33,23 @@ interface FilterContextValue {
 const FilterContext = createContext<FilterContextValue | undefined>(undefined);
 
 const HISTORICAL_END_DATE = new Date("2026-02-14");
+
+/** Data granularity for charts/tables: day, week, month, or year */
+export type DataHorizon = "day" | "week" | "month" | "year";
+
+/**
+ * For custom date range: shorter period → daily, else monthly or yearly.
+ * Use this project-wide so custom range always shows the right granularity.
+ */
+export function getHorizonForCustomRange(fromDate: string, toDate: string): DataHorizon {
+  if (!fromDate || !toDate) return "month";
+  const from = parseISO(fromDate);
+  const to = parseISO(toDate);
+  const days = differenceInDays(to, from) + 1;
+  if (days <= 31) return "day";
+  if (days <= 365) return "month";
+  return "year";
+}
 
 // LocalStorage keys
 const STORAGE_KEY_PERIOD_FILTER = "mc4_period_filter";

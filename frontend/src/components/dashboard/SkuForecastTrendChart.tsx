@@ -6,7 +6,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useFilters } from "@/context/FilterContext";
+import { useFilters, getHorizonForCustomRange } from "@/context/FilterContext";
 import { format, subMonths, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -47,17 +47,12 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
   // Forecasted data starts from 2026-02-15 (February 15, 2026) onwards
   const historicalEndDate = new Date("2026-02-14");
   
-  // Determine period type based on filter and date range span
+  // Period type: custom range uses project-wide rule (short→daily/week, else monthly or yearly)
   const calculatedPeriodType = useMemo((): PeriodType => {
     if (periodFilter === "custom" && fromDate && toDate) {
-      const from = parseISO(fromDate);
-      const to = parseISO(toDate);
-      const daysDiff = Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
-      
-      // Determine granularity based on date range span
-      if (daysDiff <= 14) return "week";
-      if (daysDiff <= 90) return "month";
-      if (daysDiff <= 365) return "quarter";
+      const h = getHorizonForCustomRange(fromDate, toDate);
+      if (h === "day") return "week";   // short custom → finest (week is closest for this chart)
+      if (h === "month") return "month";
       return "year";
     }
     return globalToLocal(periodFilter);

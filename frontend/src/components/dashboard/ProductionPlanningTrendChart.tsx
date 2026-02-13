@@ -5,7 +5,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import { useFilters } from "@/context/FilterContext";
+import { useFilters, getHorizonForCustomRange } from "@/context/FilterContext";
 import { parseISO } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -24,17 +24,16 @@ interface CapacityDataPoint {
 // Forecasted data starts from 2026-02-15 (February 15, 2026) onwards
 const HISTORICAL_END_DATE = new Date("2026-02-14");
 
-function capacityHorizonForFilter(periodFilter: string): "day" | "week" | "month" | "year" {
+// Preset horizon; custom range uses getHorizonForCustomRange (project-wide: short→day, else month/year)
+function capacityHorizonForPreset(periodFilter: string): "day" | "week" | "month" | "year" {
   switch (periodFilter) {
     case "7days":
     case "15days":
     case "30days":
-      return "day"; // Daily data for short-term filters
+      return "day";
     case "quarter":
     case "year":
-      return "month"; // Month-wise data for quarter and year filters
-    case "custom":
-      return "day"; // Daily data for custom filters
+      return "month";
     default:
       return "month";
   }
@@ -76,9 +75,13 @@ export function ProductionPlanningTrendChart({ className, title }: ProductionPla
 
   const capacityParams = useMemo(
     () => {
+      const horizon =
+        periodFilter === "custom"
+          ? getHorizonForCustomRange(queryParams.from_date, queryParams.to_date)
+          : capacityHorizonForPreset(periodFilter);
       const params: Record<string, string | undefined> = {
         ...queryParams,
-        horizon: capacityHorizonForFilter(periodFilter),
+        horizon,
       };
       // Override with local mill filter if selected
       if (selectedMill !== "all") {

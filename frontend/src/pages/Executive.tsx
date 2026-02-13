@@ -6,7 +6,7 @@ import { ChartContainer } from "@/components/dashboard/ChartContainer";
 import { SkuForecastTrendChart } from "@/components/dashboard/SkuForecastTrendChart";
 import { ProductionPlanningTrendChart } from "@/components/dashboard/ProductionPlanningTrendChart";
 import { RecipePlanningChart } from "@/components/dashboard/RecipePlanningChart";
-import { useFilters } from "@/context/FilterContext";
+import { useFilters, getHorizonForCustomRange } from "@/context/FilterContext";
 import { fetchExecutiveKpis, fetchMillCapacity, type ExecutiveKpis } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { PageLoader } from "@/components/PageLoader";
@@ -61,8 +61,16 @@ function UtilCell({
   );
 }
 
-/** Horizon for capacity heatmap: short ranges → week, longer → month/year so periods match the filter. */
-function capacityHorizonForFilter(periodFilter: string): "week" | "month" | "year" {
+/** Horizon for capacity heatmap (API accepts week|month|year only). Custom uses shared rule; day → week. */
+function capacityHorizonForFilter(
+  periodFilter: string,
+  fromDate?: string,
+  toDate?: string
+): "week" | "month" | "year" {
+  if (periodFilter === "custom" && fromDate && toDate) {
+    const h = getHorizonForCustomRange(fromDate, toDate);
+    return h === "day" ? "week" : h;
+  }
   switch (periodFilter) {
     case "7days":
     case "15days":
@@ -85,11 +93,15 @@ export default function Executive() {
   const [capacityData, setCapacityData] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Capacity/heatmap params: use future-only date range (not a trend chart)
+  // Capacity/heatmap params: use future-only date range; custom range → day/month/year by span (day→week for API)
   const capacityParams = useMemo(
     () => ({
       ...kpiQueryParams,
-      horizon: capacityHorizonForFilter(periodFilter),
+      horizon: capacityHorizonForFilter(
+        periodFilter,
+        kpiQueryParams.from_date,
+        kpiQueryParams.to_date
+      ),
     }),
     [kpiQueryParams.from_date, kpiQueryParams.to_date, kpiQueryParams.scenario, kpiQueryParams.mill_id, periodFilter]
   );

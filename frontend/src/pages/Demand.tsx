@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { KpiTile } from "@/components/dashboard/KpiTile";
 import { ChartContainer } from "@/components/dashboard/ChartContainer";
-import { useFilters } from "@/context/FilterContext";
+import { useFilters, getHorizonForCustomRange } from "@/context/FilterContext";
 import { fetchDemandRecipeKpis, fetchSkuForecast, fetchRecipePlanning, type DemandRecipeKpis } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { cn, downloadCsv } from "@/lib/utils";
@@ -23,8 +23,8 @@ interface SkuRow {
   forecast_tons: number;
 }
 
-// Helper function to determine horizon for Recipe Demand chart based on period filter
-function recipeDemandHorizonForFilter(periodFilter: string): "day" | "week" | "month" | "year" {
+// Helper: horizon for Recipe Demand chart (presets only; custom uses getHorizonForCustomRange)
+function recipeDemandHorizonForPreset(periodFilter: string): "day" | "week" | "month" | "year" {
   switch (periodFilter) {
     case "7days":
     case "15days":
@@ -48,13 +48,16 @@ export default function Demand() {
   const [recipeChart, setRecipeChart] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Recipe Demand chart params: use day horizon for 7/15/30 days filters
+  // Recipe Demand chart params: use full date range; custom range → day/month/year by span (project-wide rule)
   const recipeDemandParams = useMemo(
     () => ({
-      ...kpiQueryParams,
-      horizon: recipeDemandHorizonForFilter(periodFilter),
+      ...queryParams,
+      horizon:
+        periodFilter === "custom"
+          ? getHorizonForCustomRange(queryParams.from_date, queryParams.to_date)
+          : recipeDemandHorizonForPreset(periodFilter),
     }),
-    [kpiQueryParams.from_date, kpiQueryParams.to_date, kpiQueryParams.scenario, periodFilter]
+    [queryParams.from_date, queryParams.to_date, queryParams.scenario, queryParams.horizon, periodFilter]
   );
 
   useEffect(() => {
@@ -78,7 +81,7 @@ export default function Demand() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [queryParams.from_date, queryParams.to_date, queryParams.scenario, queryParams.horizon, kpiQueryParams.from_date, kpiQueryParams.to_date]);
+  }, [queryParams.from_date, queryParams.to_date, queryParams.scenario, queryParams.horizon, kpiQueryParams.from_date, kpiQueryParams.to_date, periodFilter]);
 
   const demandKpis = kpis
     ? [
