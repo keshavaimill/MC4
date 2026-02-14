@@ -2254,14 +2254,23 @@ async def get_report_data(
         
         # For preset filters (not "custom"), exclude data before February 2026
         # For custom date ranges, show all data in the selected range
-        FEBRUARY_2026_START = pd.Timestamp("2026-02-01")
+        FEBRUARY_2026_START = pd.Timestamp("2026-02-01")  # For quarter/year filters
+        FEBRUARY_15_2026 = pd.Timestamp("2026-02-15")  # For 7/15/30 days filters (day after historical end)
         
         if period_filter and period_filter != "custom":
-            # Preset filter: ensure we start from February 2026
-            if from_dt < FEBRUARY_2026_START:
-                from_dt = FEBRUARY_2026_START
-            if to_dt < FEBRUARY_2026_START:
-                to_dt = FEBRUARY_2026_START
+            # Preset filter: ensure we start from appropriate date
+            if period_filter in ["7days", "15days", "30days"]:
+                # For 7/15/30 days: start from February 15, 2026 (day after historical end)
+                if from_dt < FEBRUARY_15_2026:
+                    from_dt = FEBRUARY_15_2026
+                if to_dt < FEBRUARY_15_2026:
+                    to_dt = FEBRUARY_15_2026
+            else:
+                # For quarter/year: start from February 1, 2026
+                if from_dt < FEBRUARY_2026_START:
+                    from_dt = FEBRUARY_2026_START
+                if to_dt < FEBRUARY_2026_START:
+                    to_dt = FEBRUARY_2026_START
             
             # Convert adjusted dates back to strings for passing to other functions
             from_date = from_dt.strftime("%Y-%m-%d")

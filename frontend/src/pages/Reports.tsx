@@ -52,18 +52,30 @@ export default function Reports() {
   // Calculate display dates: for preset filters, show adjusted dates starting from February 2026
   // For custom date ranges, show the actual selected dates
   const displayDates = useMemo(() => {
-    const FEBRUARY_2026_START = new Date("2026-02-01");
+    const FEBRUARY_2026_START = new Date("2026-02-01");  // For quarter/year filters
+    const FEBRUARY_15_2026 = new Date("2026-02-15");  // For 7/15/30 days filters (day after historical end)
     
     if (periodFilter && periodFilter !== "custom") {
-      // For preset filters, adjust dates to start from February 2026
+      // For preset filters, adjust dates to start from appropriate date
       let fromDate = parseISO(queryParams.from_date);
       let toDate = parseISO(queryParams.to_date);
       
-      if (fromDate < FEBRUARY_2026_START) {
-        fromDate = FEBRUARY_2026_START;
-      }
-      if (toDate < FEBRUARY_2026_START) {
-        toDate = FEBRUARY_2026_START;
+      if (periodFilter === "7days" || periodFilter === "15days" || periodFilter === "30days") {
+        // For 7/15/30 days: start from February 15, 2026
+        if (fromDate < FEBRUARY_15_2026) {
+          fromDate = FEBRUARY_15_2026;
+        }
+        if (toDate < FEBRUARY_15_2026) {
+          toDate = FEBRUARY_15_2026;
+        }
+      } else {
+        // For quarter/year: start from February 1, 2026
+        if (fromDate < FEBRUARY_2026_START) {
+          fromDate = FEBRUARY_2026_START;
+        }
+        if (toDate < FEBRUARY_2026_START) {
+          toDate = FEBRUARY_2026_START;
+        }
       }
       
       return {
