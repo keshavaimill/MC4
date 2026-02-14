@@ -221,7 +221,7 @@ export default function Chatbot() {
           {/* Messages - Only show when not minimized */}
           {!isMinimized && (
             <>
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-4 space-y-4">
                 {/* Example Questions - Show only when there's just the welcome message */}
                 {messages.length === 1 && (
                   <div className="space-y-3 mb-4">
@@ -303,43 +303,45 @@ export default function Chatbot() {
                 {messages.map((message, idx) => (
                   <div
                     key={idx}
-                    className={`flex ${
+                    className={`flex min-w-0 ${
                       message.role === 'user' ? 'justify-end' : 'justify-start'
                     }`}
                   >
                       <div
-                      className={`max-w-[80%] rounded-lg p-3 ${
+                      className={`max-w-[85%] min-w-0 rounded-lg p-3 ${
                         message.role === 'user'
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-muted text-foreground border-2 border-border'
                       }`}
                     >
-                      <div className="flex items-start space-x-2">
+                      <div className="flex items-start space-x-2 min-w-0">
                         {message.role === 'assistant' && (
                           <UserCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                         )}
                         {message.role === 'user' && (
                           <User className="w-4 h-4 mt-0.5 flex-shrink-0" />
                         )}
-                        <div className="flex-1">
-                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
                           {message.sql && (
-                            <details className="mt-2">
+                            <details className="mt-2 min-w-0">
                               <summary className="text-xs opacity-75 cursor-pointer hover:opacity-100">
                                 View SQL
                               </summary>
-                              <pre className="mt-1 text-xs bg-black/10 dark:bg-white/10 p-2 rounded overflow-x-auto">
-                                {message.sql}
-                              </pre>
+                              <div className="mt-1 min-w-0 overflow-x-auto rounded bg-black/10 dark:bg-white/10 p-2">
+                                <pre className="text-xs whitespace-pre">
+                                  {message.sql}
+                                </pre>
+                              </div>
                             </details>
                           )}
                           {message.data && message.data.length > 0 && (
-                            <details className="mt-2">
+                            <details className="mt-2 min-w-0">
                               <summary className="text-xs opacity-75 cursor-pointer hover:opacity-100">
                                 View Data ({message.data.length} rows)
                               </summary>
-                              <div className="mt-1 text-xs bg-black/10 dark:bg-white/10 p-2 rounded overflow-x-auto max-h-40 overflow-y-auto">
-                                <table className="w-full text-left">
+                              <div className="mt-1 text-xs bg-black/10 dark:bg-white/10 p-2 rounded min-w-0 overflow-x-auto overflow-y-auto max-h-48">
+                                <table className="w-full text-left min-w-max">
                                   <thead>
                                     <tr>
                                       {Object.keys(message.data[0]).map((key) => (
