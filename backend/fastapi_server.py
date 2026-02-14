@@ -1443,6 +1443,7 @@ async def get_sku_forecast(
     period: Optional[str] = None,
     sku_id: Optional[str] = None,
     mill_id: Optional[str] = None,
+    flour_type: Optional[str] = None,
     scenario: Optional[str] = Query("base"),
 ):
     try:
@@ -1466,9 +1467,134 @@ async def get_sku_forecast(
             fcast = fcast.merge(dim_flour[["flour_type_id", "flour_name"]], on="flour_type_id", how="left")
             fcast.rename(columns={"flour_name": "flour_type"}, inplace=True)
         
-        # Note: SKU forecast is demand-level data and does not have mill_id.
-        # Mill filtering is not applicable to SKU forecasts as they represent
-        # aggregate demand, not production by mill.
+        # Filter by flour_type if provided
+        if flour_type:
+            fcast = fcast[fcast["flour_type"] == flour_type]
+        
+        # Mill filtering: Map SKU demand to mills through recipes and schedules
+        if mill_id:
+            # Get mapping tables
+            map_flour_recipe = data_cache.get("map_flour_recipe", pd.DataFrame())
+            map_recipe_mill = data_cache.get("map_recipe_mill", pd.DataFrame())
+            schedule = data_cache.get("fact_schedule", pd.DataFrame())
+            
+            # Filter schedule by mill if provided
+            mill_ids = [m.strip() for m in mill_id.split(",")]
+            
+            # Join SKU → Flour Type → Recipe
+            if not map_flour_recipe.empty and "flour_type_id" in fcast.columns:
+                fcast = fcast.merge(map_flour_recipe[["flour_type_id", "recipe_id", "default_allocation_pct"]], 
+                                  on="flour_type_id", how="left")
+                
+                # IMPORTANT: Allocate SKU demand across recipes first using default_allocation_pct
+                # This prevents double-counting when a flour_type maps to multiple recipes
+                fcast["demand_tons"] = (fcast["demand_tons"] * fcast["default_allocation_pct"].fillna(1.0)).round(2)
+                fcast["demand_units"] = (fcast["demand_units"] * fcast["default_allocation_pct"].fillna(1.0)).round(0).astype(int)
+            
+            # For historical data (has schedule), use actual production allocation
+            # For forecast data, use map_recipe_mill to allocate proportionally
+            historical_mask = fcast["date"] <= pd.Timestamp("2026-02-14")
+            forecast_mask = fcast["date"] > pd.Timestamp("2026-02-14")
+            
+            result_rows = []
+            
+            # Historical data: use capacity-based allocation (same as forecast) for consistency
+            # This ensures historical and forecast use the same allocation method based on mill capacity
+            if historical_mask.any() and not map_recipe_mill.empty:
+                hist_fcast = fcast[historical_mask].copy()
+                
+                if "recipe_id" in hist_fcast.columns:
+                    # Calculate total capacity (sum of max_rate_tph) per recipe across ALL mills
+                    # This is needed for proper capacity-weighted allocation
+                    recipe_capacity_totals = map_recipe_mill.groupby("recipe_id")["max_rate_tph"].sum().reset_index()
+                    recipe_capacity_totals.rename(columns={"max_rate_tph": "total_capacity_all_mills"}, inplace=True)
+                    
+                    # Filter map_recipe_mill by requested mills only (includes max_rate_tph)
+                    allowed_mills = map_recipe_mill[map_recipe_mill["mill_id"].isin(mill_ids)].copy()
+                    
+                    # Join SKU forecast with allowed mills (only selected mills, with their capacity)
+                    hist_merged = hist_fcast.merge(
+                        allowed_mills[["recipe_id", "mill_id", "max_rate_tph"]],
+                        on="recipe_id",
+                        how="inner"  # Only include recipes that selected mills can produce
+                    )
+                    
+                    # Join with total capacity to calculate proper allocation
+                    hist_merged = hist_merged.merge(
+                        recipe_capacity_totals,
+                        on="recipe_id",
+                        how="left"
+                    )
+                    
+                    # Allocate proportionally based on mill capacity: 
+                    # mill_demand = (mill_max_rate_tph / total_capacity_all_mills) * sku_demand
+                    # This ensures capacity-weighted allocation, consistent with forecast
+                    # GUARDRAIL: Sum of individual mills (M1 + M2 + M3) = Total (all mills)
+                    # This works because: sum(mill_max_rate_tph / total_capacity_all_mills) = 1.0
+                    total_capacity = hist_merged["total_capacity_all_mills"].fillna(1).replace(0, 1)
+                    capacity_ratio = hist_merged["max_rate_tph"] / total_capacity
+                    hist_merged["demand_tons"] = (hist_merged["demand_tons"] * capacity_ratio).round(2)
+                    hist_merged["demand_units"] = (hist_merged["demand_units"] * capacity_ratio).round(0).astype(int)
+                    
+                    # Drop helper columns
+                    hist_merged = hist_merged.drop(columns=["max_rate_tph", "total_capacity_all_mills"], errors="ignore")
+                    result_rows.append(hist_merged)
+            
+            # Forecast data: use map_recipe_mill to allocate based on mill capacity (max_rate_tph)
+            if forecast_mask.any() and not map_recipe_mill.empty:
+                fcast_fcast = fcast[forecast_mask].copy()
+                
+                if "recipe_id" in fcast_fcast.columns:
+                    # Calculate total capacity (sum of max_rate_tph) per recipe across ALL mills
+                    # This is needed for proper capacity-weighted allocation
+                    recipe_capacity_totals = map_recipe_mill.groupby("recipe_id")["max_rate_tph"].sum().reset_index()
+                    recipe_capacity_totals.rename(columns={"max_rate_tph": "total_capacity_all_mills"}, inplace=True)
+                    
+                    # Filter map_recipe_mill by requested mills only (includes max_rate_tph)
+                    allowed_mills = map_recipe_mill[map_recipe_mill["mill_id"].isin(mill_ids)].copy()
+                    
+                    # Join SKU forecast with allowed mills (only selected mills, with their capacity)
+                    fcast_merged = fcast_fcast.merge(
+                        allowed_mills[["recipe_id", "mill_id", "max_rate_tph"]],
+                        on="recipe_id",
+                        how="inner"  # Only include recipes that selected mills can produce
+                    )
+                    
+                    # Join with total capacity to calculate proper allocation
+                    fcast_merged = fcast_merged.merge(
+                        recipe_capacity_totals,
+                        on="recipe_id",
+                        how="left"
+                    )
+                    
+                    # Allocate proportionally based on mill capacity: 
+                    # mill_demand = (mill_max_rate_tph / total_capacity_all_mills) * sku_demand
+                    # This ensures capacity-weighted allocation, not even division
+                    # GUARDRAIL: Sum of individual mills (M1 + M2 + M3) = Total (all mills)
+                    # This works because: sum(mill_max_rate_tph / total_capacity_all_mills) = 1.0
+                    total_capacity = fcast_merged["total_capacity_all_mills"].fillna(1).replace(0, 1)
+                    capacity_ratio = fcast_merged["max_rate_tph"] / total_capacity
+                    fcast_merged["demand_tons"] = (fcast_merged["demand_tons"] * capacity_ratio).round(2)
+                    fcast_merged["demand_units"] = (fcast_merged["demand_units"] * capacity_ratio).round(0).astype(int)
+                    
+                    # Drop helper columns
+                    fcast_merged = fcast_merged.drop(columns=["max_rate_tph", "total_capacity_all_mills"], errors="ignore")
+                    result_rows.append(fcast_merged)
+            
+            # Combine results
+            if result_rows:
+                fcast = pd.concat(result_rows, ignore_index=True)
+                # Ensure date is datetime for further processing
+                if "date" in fcast.columns:
+                    fcast["date"] = pd.to_datetime(fcast["date"])
+            else:
+                fcast = pd.DataFrame()  # No data for selected mills
+        
+        if fcast.empty:
+            return {"data": []}
+
+        # Drop helper columns if they exist
+        fcast = fcast.drop(columns=["default_allocation_pct", "mill_id"], errors="ignore")
 
         # If horizon is "day", return daily data without aggregation
         if horizon == "day":

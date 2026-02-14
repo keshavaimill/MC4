@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { ChartContainer } from "./ChartContainer";
-import { fetchSkuForecast } from "@/lib/api";
+import { fetchSkuForecast, fetchMillCapacity } from "@/lib/api";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   ReferenceLine,
@@ -42,6 +42,13 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
   const [loading, setLoading] = useState(true);
   const [selectedSku, setSelectedSku] = useState<string>("all");
   const [selectedFlourType, setSelectedFlourType] = useState<string>("all");
+  const [selectedMill, setSelectedMill] = useState<string>("all");
+  
+  interface MillInfo {
+    mill_id: string;
+    mill_name: string;
+  }
+  const [mills, setMills] = useState<MillInfo[]>([]);
   
   // Historical data ends at 2026-02-14 (February 14, 2026)
   // Forecasted data starts from 2026-02-15 (February 15, 2026) onwards
@@ -230,6 +237,8 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
             to_date: dateRange.historicalEnd,
             horizon: "day", // Fetch daily data
             sku_id: selectedSku !== "all" ? selectedSku : undefined,
+            mill_id: selectedMill !== "all" ? selectedMill : undefined,
+            flour_type: selectedFlourType !== "all" ? selectedFlourType : undefined,
           };
           
           const res = await fetchSkuForecast(params);
@@ -248,6 +257,8 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
             to_date: dateRange.historicalEnd,
             horizon: "day", // Fetch daily data
             sku_id: selectedSku !== "all" ? selectedSku : undefined,
+            mill_id: selectedMill !== "all" ? selectedMill : undefined,
+            flour_type: selectedFlourType !== "all" ? selectedFlourType : undefined,
           };
           
           const forecastParams = {
@@ -256,6 +267,8 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
             to_date: dateRange.forecastEnd,
             horizon: "day", // Fetch daily data
             sku_id: selectedSku !== "all" ? selectedSku : undefined,
+            mill_id: selectedMill !== "all" ? selectedMill : undefined,
+            flour_type: selectedFlourType !== "all" ? selectedFlourType : undefined,
           };
           
           // Fetch both historical and forecasted data
@@ -279,18 +292,11 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
         
         if (cancelled) return;
         
-        // Filter by flour type if selected
-        let filteredData = combinedData;
-        if (selectedFlourType !== "all") {
-          filteredData = filteredData.filter(
-            (item) => item.flour_type === selectedFlourType
-          );
-        }
-        
-        setDailyData(filteredData);
+        // Flour type filtering is now done in the backend, so no need to filter here
+        setDailyData(combinedData);
         
         if (!cancelled) {
-          console.log(`📊 Loaded ${filteredData.length} daily records${dateRange.isCustom ? " (custom range)" : " (historical + forecasted)"}`);
+          console.log(`📊 Loaded ${combinedData.length} daily records${dateRange.isCustom ? " (custom range)" : " (historical + forecasted)"}`);
         }
       } catch (err) {
         if (!cancelled) {
@@ -304,13 +310,34 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
     
     loadData();
     return () => { cancelled = true; };
-  }, [periodType, selectedSku, selectedFlourType, queryParams.scenario, periodFilter, fromDate, toDate]);
+  }, [periodType, selectedSku, selectedFlourType, selectedMill, queryParams.scenario, periodFilter, fromDate, toDate]);
 
   // Get unique SKUs and flour types for filters
   const [allSkus, setAllSkus] = useState<string[]>([]);
   const [allFlourTypes, setAllFlourTypes] = useState<string[]>([]);
 
-  // Load unique values and mill data on mount
+  // Fetch mill names on mount
+  useEffect(() => {
+    const loadMills = async () => {
+      try {
+        const res = await fetchMillCapacity({ from_date: "2020-01-01", to_date: "2027-12-31", horizon: "month" });
+        const millData = res.data || [];
+        const uniqueMills = Array.from(
+          new Map(
+            millData
+              .filter((item) => item.mill_id && item.mill_name)
+              .map((item) => [item.mill_id as string, { mill_id: item.mill_id as string, mill_name: item.mill_name as string }])
+          ).values()
+        ).sort((a, b) => a.mill_id.localeCompare(b.mill_id));
+        setMills(uniqueMills);
+      } catch (err) {
+        console.error("Error loading mills:", err);
+      }
+    };
+    loadMills();
+  }, []);
+
+  // Load unique values on mount
   useEffect(() => {
     const loadUniqueValues = async () => {
       try {
@@ -525,7 +552,19 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
             </SelectContent>
           </Select>
 
-          {/* Mill filter removed: SKU forecast is demand-level data, not mill-specific */}
+          <Select value={selectedMill} onValueChange={setSelectedMill}>
+            <SelectTrigger className="h-7 w-40 text-xs">
+              <SelectValue placeholder="All Mills" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Mills</SelectItem>
+              {mills.map((mill) => (
+                <SelectItem key={mill.mill_id} value={mill.mill_id}>
+                  {mill.mill_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Chart */}

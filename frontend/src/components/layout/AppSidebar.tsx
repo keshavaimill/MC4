@@ -1,6 +1,6 @@
 import { useLocation } from "react-router-dom";
 import {
-  LayoutDashboard, TrendingUp, ChefHat, Factory, Wheat as WheatIcon,
+  LayoutDashboard, TrendingUp, ChefHat, Wheat as WheatIcon,
   FlaskConical, Bell, FileText, Recycle,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -22,19 +22,13 @@ const navGroups = [
     items: [
       { title: "Demand & Forecast", url: "/demand", icon: TrendingUp },
       { title: "Production Planning", url: "/planning", icon: ChefHat },
-      { title: "Mill Capacity", url: "/operations", icon: Factory },
-    ],
-  },
-  {
-    label: "Supply & Sustainability",
-    items: [
       { title: "Raw Materials", url: "/materials", icon: WheatIcon },
-      { title: "Waste & Vision 2030", url: "/waste", icon: Recycle },
     ],
   },
   {
-    label: "Analysis",
+    label: "AI COPILOT & SUSTAINABILITY VISION",
     items: [
+      { title: "Waste & Vision 2030", url: "/waste", icon: Recycle },
       { title: "Alerts & Actions", url: "/alerts", icon: Bell },
       { title: "Reports & Emails", url: "/reports", icon: FileText },
     ],

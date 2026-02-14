@@ -6,7 +6,6 @@ const navItems = [
   { label: "Executive", path: "/dashboard" },
   { label: "Demand", path: "/demand" },
   { label: "Planning", path: "/planning" },
-  { label: "Operations", path: "/operations" },
   { label: "Materials", path: "/materials" },
   { label: "Waste", path: "/waste" },
   { label: "Alerts", path: "/alerts" },

@@ -14,6 +14,7 @@ import { parseISO, format } from "date-fns";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
+import { SkuForecastTrendChart } from "@/components/dashboard/SkuForecastTrendChart";
 
 interface SkuRow {
   sku_id: string;
@@ -176,6 +177,11 @@ export default function Demand() {
         {demandKpis.map((kpi) => (
           <KpiTile key={kpi.label} {...kpi} />
         ))}
+      </div>
+
+      {/* SKU Forecast Trend Chart */}
+      <div className="mb-6">
+        <SkuForecastTrendChart />
       </div>
 
       {/* SKU Table - Full Width */}

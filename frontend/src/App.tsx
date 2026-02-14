@@ -7,7 +7,6 @@ import Login from "./pages/Login";
 import Executive from "./pages/Executive";
 import Demand from "./pages/Demand";
 import Planning from "./pages/Planning";
-import Operations from "./pages/Operations";
 import Materials from "./pages/Materials";
 import WastePage from "./pages/WastePage";
 import Alerts from "./pages/Alerts";
@@ -80,7 +79,7 @@ const App = () => (
                 path="/operations"
                 element={
                   <ProtectedRoute>
-                    <Operations />
+                    <Navigate to="/planning" replace />
                   </ProtectedRoute>
                 }
               />
