@@ -13,7 +13,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://0.0.0.0:8011',
+        target: 'https://aimilltest-dbd6dvhdcceef3d4.westus2-01.azurewebsites.net',
         changeOrigin: true,
       },
     },
