@@ -388,7 +388,7 @@ export default function Planning() {
     });
   };
 
-  // Combined KPIs: Planning (6) + Operations (5) = 11 total
+  // Combined KPIs: Planning (5) + Operations (5) = 10 total
   const allKpis = useMemo(() => {
     const planning = kpis
       ? [
@@ -396,7 +396,6 @@ export default function Planning() {
           { label: "Available Mill Hours", value: Math.round(totalCapacity).toLocaleString(), unit: "hrs", driver: "Period capacity" },
           { label: "Slack / Shortfall", value: Math.round(slackShortfall).toLocaleString(), unit: "hrs", driver: slackShortfall < 0 ? "Shortfall (overload)" : "Slack within capacity" },
           { label: "Wheat Cost Index", value: kpis.wheat_cost_index.toFixed(0), unit: "SAR", driver: "Weighted avg cost" },
-          { label: "Waste Impact", value: kpis.waste_impact_pct.toFixed(1), unit: "%", delta: -kpis.waste_impact_pct, driver: "Period waste rate" },
           { label: "Cost Impact", value: `${effectiveCostImpact > 0 ? "+" : ""}${effectiveCostImpact.toFixed(1)}`, unit: "%", delta: effectiveCostImpact, driver: `Baseline ${(kpis.cost_impact_pct ?? 0).toFixed(1)}% + slider adj` },
         ]
       : [];
@@ -430,7 +429,7 @@ export default function Planning() {
         <p className="text-sm text-muted-foreground mt-0.5">Recipe allocation, mill capacity, and production scheduling</p>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         {allKpis.map((kpi) => (
           <KpiTile key={kpi.label} {...kpi} />
         ))}
@@ -590,8 +589,8 @@ export default function Planning() {
           ledgerDateRangeText
             ? `Filtered: ${ledgerDateRangeText}`
             : dateRangeText
-              ? `Available vs Planned hours per mill (${dateRangeText})`
-              : "Available vs Planned hours per mill"
+              ? `Available vs Demand hours per mill (${dateRangeText})`
+              : "Available vs Demand hours per mill"
         }
         action={
           <Button
@@ -655,7 +654,7 @@ export default function Planning() {
                   );
                 }}
               />
-              <Bar dataKey="planned" name="Planned Hours" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="planned" name="Demand Hours" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
               <Bar dataKey="available" name="Available Mill Hours" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -664,7 +663,7 @@ export default function Planning() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/50">
-                {["Mill", "Period", "Available Hours", "Planned Hours", "Variance", "Status"].map((h) => (
+                {["Mill", "Period", "Available Hours", "Demand Hours", "Variance", "Status"].map((h) => (
                   <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{h}</th>
                 ))}
               </tr>
@@ -684,7 +683,7 @@ export default function Planning() {
                       onClick={() => handleLedgerClick(row.mill, row.status)}
                     >
                       {row.status === "ok" && <Check className="h-4 w-4 text-emerald-600" />}
-                      {row.status === "warning" && <AlertTriangle className="h-4 w-4 text-amber-600" />}
+                      {row.status === "warning" && <AlertTriangle className="h-4 w-4 text-red-600" />}
                       {row.status === "danger" && <X className="h-4 w-4 text-red-600" />}
                     </button>
                   </td>

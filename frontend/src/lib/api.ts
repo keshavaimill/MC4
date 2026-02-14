@@ -134,6 +134,9 @@ export const fetchMillSchedule = (p: Record<string, string | undefined>) =>
 export const fetchRawMaterial = (p: Record<string, string | undefined>) =>
   get<{ data: Record<string, unknown>[] }>("/api/raw-material", p);
 
+export const fetchWheatRequirement = (p: Record<string, string | undefined>) =>
+  get<{ data: Record<string, unknown>[] }>("/api/wheat-requirement", p);
+
 export const fetchWasteMetrics = (p: Record<string, string | undefined>) =>
   get<{ data: Record<string, unknown>[] }>("/api/waste-metrics", p);
 

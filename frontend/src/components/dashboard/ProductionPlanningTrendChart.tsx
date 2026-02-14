@@ -3,7 +3,7 @@ import { ChartContainer } from "./ChartContainer";
 import { fetchMillCapacity, fetchRecipePlanning } from "@/lib/api";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  ReferenceLine,
+  ReferenceLine, TooltipProps,
 } from "recharts";
 import { useFilters, getHorizonForCustomRange } from "@/context/FilterContext";
 import { parseISO } from "date-fns";
@@ -51,6 +51,13 @@ export function ProductionPlanningTrendChart({ className, title }: ProductionPla
   const [loading, setLoading] = useState(true);
   const [selectedMill, setSelectedMill] = useState<string>("all");
   const [mills, setMills] = useState<MillInfo[]>([]);
+  // Store February daily breakdown for tooltip
+  const [februaryBreakdown, setFebruaryBreakdown] = useState<{
+    historicalPlanned: number;
+    forecastedPlanned: number;
+    historicalAvailable: number;
+    forecastedAvailable: number;
+  } | null>(null);
 
   // Fetch mill names on mount
   useEffect(() => {
@@ -121,6 +128,89 @@ export function ProductionPlanningTrendChart({ className, title }: ProductionPla
     capacityParams.mill_id,
     selectedMill,
   ]);
+
+  // Fetch February daily breakdown when in monthly view (quarter/year filters)
+  useEffect(() => {
+    if (capacityParams.horizon !== "month") {
+      setFebruaryBreakdown(null);
+      return;
+    }
+
+    let cancelled = false;
+    
+    // Fetch daily data for February 2026 to calculate breakdown
+    const febParams = {
+      ...capacityParams,
+      from_date: "2026-02-01",
+      to_date: "2026-02-28",
+      horizon: "day" as const,
+    };
+
+    Promise.all([
+      fetchMillCapacity(febParams),
+      fetchRecipePlanning(febParams),
+    ])
+      .then(([capacityResponse, recipeResponse]) => {
+        if (cancelled) return;
+        
+        const dailyCapacity = Array.isArray(capacityResponse.data) ? capacityResponse.data : [];
+        const dailyRecipe = Array.isArray(recipeResponse.data) ? recipeResponse.data : [];
+        
+        // Calculate breakdown: Feb 1-14 (historical) vs Feb 15-28 (forecasted)
+        let historicalPlanned = 0;
+        let forecastedPlanned = 0;
+        let historicalAvailable = 0;
+        let forecastedAvailable = 0;
+
+        const historicalEndDate = new Date("2026-02-14");
+
+        for (const row of dailyRecipe) {
+          const dateStr = row.period as string;
+          if (!dateStr) continue;
+          try {
+            const date = parseISO(dateStr);
+            const hours = Number(row.scheduled_hours) || 0;
+            if (date <= historicalEndDate) {
+              historicalPlanned += hours;
+            } else {
+              forecastedPlanned += hours;
+            }
+          } catch {
+            // Skip invalid dates
+          }
+        }
+
+        for (const row of dailyCapacity) {
+          const dateStr = row.period as string;
+          if (!dateStr) continue;
+          try {
+            const date = parseISO(dateStr);
+            const hours = Number(row.available_hours) || 0;
+            if (date <= historicalEndDate) {
+              historicalAvailable += hours;
+            } else {
+              forecastedAvailable += hours;
+            }
+          } catch {
+            // Skip invalid dates
+          }
+        }
+
+        if (!cancelled) {
+          setFebruaryBreakdown({
+            historicalPlanned: Math.round(historicalPlanned),
+            forecastedPlanned: Math.round(forecastedPlanned),
+            historicalAvailable: Math.round(historicalAvailable),
+            forecastedAvailable: Math.round(forecastedAvailable),
+          });
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) console.error("Error loading February breakdown:", err);
+      });
+
+    return () => { cancelled = true; };
+  }, [capacityParams.horizon, capacityParams.scenario, capacityParams.mill_id, selectedMill]);
 
   // Determine if a period is historical or forecasted based on the period string
   const isHistoricalPeriod = (period: string): boolean => {
@@ -366,23 +456,95 @@ export function ProductionPlanningTrendChart({ className, title }: ProductionPla
                 tickLine={{ stroke: "hsl(var(--border))" }}
               />
               <Tooltip
-                contentStyle={{
-                  borderRadius: 8,
-                  border: "1px solid hsl(var(--border))",
-                  backgroundColor: "hsl(var(--card))",
-                  fontSize: 12,
-                }}
-                formatter={(value: number, name: string) => {
-                  if (value === null || value === undefined || isNaN(value)) return null;
+                content={({ active, payload, label }: TooltipProps<number, string>) => {
+                  if (!active || !payload || !payload.length) return null;
+                  
+                  const isFebruary2026 = label === "2026-02";
+                  const isMonthlyView = capacityParams.horizon === "month";
+                  
+                  // For February 2026 in monthly view, show breakdown
+                  if (isFebruary2026 && isMonthlyView && februaryBreakdown) {
+                    const plannedPayload = payload.find(p => p.dataKey === "historicalPlanned" || p.dataKey === "forecastedPlanned");
+                    const availablePayload = payload.find(p => p.dataKey === "historicalAvailable" || p.dataKey === "forecastedAvailable");
+                    
+                    return (
+                      <div
+                        style={{
+                          borderRadius: 8,
+                          border: "1px solid hsl(var(--border))",
+                          backgroundColor: "hsl(var(--card))",
+                          fontSize: 12,
+                          padding: "12px",
+                          boxShadow: "0 4px 16px hsl(var(--foreground) / 0.06)",
+                        }}
+                      >
+                        <div style={{ fontWeight: 600, marginBottom: "8px", fontSize: "13px" }}>
+                          Period: {label} (Historical + Forecasted)
+                        </div>
+                        
+                        {plannedPayload && (
+                          <div style={{ marginBottom: "8px" }}>
+                            <div style={{ fontWeight: 600, marginBottom: "4px", color: "hsl(var(--foreground))" }}>
+                              Planned Recipe Hours: {(februaryBreakdown.historicalPlanned + februaryBreakdown.forecastedPlanned).toLocaleString()} hrs
+                            </div>
+                            <div style={{ color: "#8B4513", fontSize: "11px", marginLeft: "8px", marginTop: "2px" }}>
+                              Historical (Feb 1-14): {februaryBreakdown.historicalPlanned.toLocaleString()} hrs
+                            </div>
+                            <div style={{ color: "#FCD34D", fontSize: "11px", marginLeft: "8px", marginTop: "2px" }}>
+                              Forecasted (Feb 15-28): {februaryBreakdown.forecastedPlanned.toLocaleString()} hrs
+                            </div>
+                          </div>
+                        )}
+                        
+                        {availablePayload && (
+                          <div>
+                            <div style={{ fontWeight: 600, marginBottom: "4px", color: "hsl(var(--foreground))" }}>
+                              Available Mill Hours: {(februaryBreakdown.historicalAvailable + februaryBreakdown.forecastedAvailable).toLocaleString()} hrs
+                            </div>
+                            <div style={{ color: "#8B4513", fontSize: "11px", marginLeft: "8px", marginTop: "2px" }}>
+                              Historical (Feb 1-14): {februaryBreakdown.historicalAvailable.toLocaleString()} hrs
+                            </div>
+                            <div style={{ color: "#FCD34D", fontSize: "11px", marginLeft: "8px", marginTop: "2px" }}>
+                              Forecasted (Feb 15-28): {februaryBreakdown.forecastedAvailable.toLocaleString()} hrs
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  
+                  // For other periods, show normal tooltip
                   const labels: Record<string, string> = {
                     historicalPlanned: "Planned Recipe Hours",
                     forecastedPlanned: "Planned Recipe Hours",
                     historicalAvailable: "Available Mill Hours",
                     forecastedAvailable: "Available Mill Hours",
                   };
-                  return [`${value.toLocaleString()} hrs`, labels[name] || name];
+                  
+                  return (
+                    <div
+                      style={{
+                        borderRadius: 8,
+                        border: "1px solid hsl(var(--border))",
+                        backgroundColor: "hsl(var(--card))",
+                        fontSize: 12,
+                        padding: "8px 12px",
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, marginBottom: "4px" }}>Period: {label}</div>
+                      {payload.map((entry, index) => {
+                        if (entry.value === null || entry.value === undefined || isNaN(entry.value as number)) return null;
+                        const dataKey = entry.dataKey as string;
+                        return (
+                          <div key={index} style={{ marginTop: "4px" }}>
+                            <span style={{ color: entry.color }}>● </span>
+                            <span>{labels[dataKey] || dataKey}: {(entry.value as number).toLocaleString()} hrs</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
                 }}
-                labelFormatter={(label) => `Period: ${label}`}
               />
               <Legend
                 content={({ payload }) => {

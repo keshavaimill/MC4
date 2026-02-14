@@ -543,7 +543,7 @@ export default function Operations() {
                       onClick={() => handleLedgerClick(row.mill, row.status)}
                     >
                       {row.status === "ok" && <Check className="h-4 w-4 text-emerald-600" />}
-                      {row.status === "warning" && <AlertTriangle className="h-4 w-4 text-amber-600" />}
+                      {row.status === "warning" && <AlertTriangle className="h-4 w-4 text-red-600" />}
                       {row.status === "danger" && <X className="h-4 w-4 text-red-600" />}
                     </button>
                   </td>

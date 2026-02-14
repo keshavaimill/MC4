@@ -326,6 +326,9 @@ def generate_future_forecast(start_date, end_date, dim_sku, forecaster=None, dat
         # Reorder columns to match historical schema
         result = result[required_columns]
         
+        # February data is generated naturally with real-world variations (weekend, Ramadan, seasonality, etc.)
+        # No adjustments needed - data flows naturally from the model
+        
         # Ensure date is string format (YYYY-MM-DD) to match historical
         result['date'] = result['date'].dt.strftime('%Y-%m-%d')
         
@@ -411,6 +414,9 @@ def generate_forecasts_and_propagate_datasets(
             combined_df = pd.concat([existing_df, forecast_df], ignore_index=True)
         else:
             combined_df = forecast_df.copy()
+        
+        # February data is generated naturally with real-world variations (weekend, Ramadan, seasonality, etc.)
+        # No adjustments needed - data flows naturally from the model
         
         # Save
         combined_df.to_csv(forecast_path, index=False)

@@ -3,7 +3,7 @@ import { ChartContainer } from "./ChartContainer";
 import { fetchSkuForecast, fetchMillCapacity } from "@/lib/api";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  ReferenceLine,
+  ReferenceLine, TooltipProps,
 } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useFilters, getHorizonForCustomRange } from "@/context/FilterContext";
@@ -49,6 +49,11 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
     mill_name: string;
   }
   const [mills, setMills] = useState<MillInfo[]>([]);
+  // Store February daily breakdown for tooltip
+  const [februaryBreakdown, setFebruaryBreakdown] = useState<{
+    historical: number;
+    forecasted: number;
+  } | null>(null);
   
   // Historical data ends at 2026-02-14 (February 14, 2026)
   // Forecasted data starts from 2026-02-15 (February 15, 2026) onwards
@@ -161,7 +166,18 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
     // For custom ranges, combine all data into a single series
     if (isCustom) {
       data.forEach((item) => {
-        const itemDate = new Date(item.date);
+        // Skip invalid dates
+        if (!item.date) return;
+        
+        // Parse the date string using parseISO for reliable date handling
+        const itemDate = parseISO(item.date);
+        
+        // Skip if date parsing failed (invalid date)
+        if (isNaN(itemDate.getTime())) {
+          console.warn(`Invalid date encountered: ${item.date}`);
+          return;
+        }
+        
         let period: string;
         
         // Determine granularity based on period type
@@ -180,10 +196,22 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
       });
     } else {
       // For preset ranges, split into historical and forecasted
-      const dividerDate = new Date("2026-02-14");
+      // Use parseISO for reliable date parsing (handles ISO date strings correctly)
+      const dividerDate = parseISO("2026-02-14");
       
       data.forEach((item) => {
-        const itemDate = new Date(item.date);
+        // Skip invalid dates
+        if (!item.date) return;
+        
+        // Parse the date string using parseISO for reliable date handling
+        const itemDate = parseISO(item.date);
+        
+        // Skip if date parsing failed (invalid date)
+        if (isNaN(itemDate.getTime())) {
+          console.warn(`Invalid date encountered: ${item.date}`);
+          return;
+        }
+        
         let period: string;
         
         switch (type) {
@@ -207,7 +235,12 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
         
         // Historical: up to and including Feb 14, 2026
         // Forecasted: from Feb 15, 2026 onwards
-        const isAfterDivider = itemDate > dividerDate;
+        // Compare dates properly - parseISO ensures correct date parsing
+        // Normalize to date-only comparison by comparing timestamps at midnight
+        const itemDateOnly = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate());
+        const dividerDateOnly = new Date(dividerDate.getFullYear(), dividerDate.getMonth(), dividerDate.getDate());
+        const isAfterDivider = itemDateOnly > dividerDateOnly;
+        
         if (isAfterDivider) {
           result[period].forecasted += item.forecast_tons;
         } else {
@@ -360,6 +393,69 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
     loadUniqueValues();
   }, []);
 
+  // Fetch February daily breakdown when in monthly view (quarter/year filters)
+  useEffect(() => {
+    if (periodType !== "quarter" && periodType !== "year") {
+      setFebruaryBreakdown(null);
+      return;
+    }
+
+    let cancelled = false;
+    
+    // Fetch daily data for February 2026 to calculate breakdown
+    const febParams = {
+      ...queryParams,
+      from_date: "2026-02-01",
+      to_date: "2026-02-28",
+      horizon: "day" as const,
+      sku_id: selectedSku !== "all" ? selectedSku : undefined,
+      mill_id: selectedMill !== "all" ? selectedMill : undefined,
+      flour_type: selectedFlourType !== "all" ? selectedFlourType : undefined,
+    };
+
+    fetchSkuForecast(febParams)
+      .then((res) => {
+        if (cancelled) return;
+        
+        const dailyData = (res.data || []).map((item) => ({
+          date: item.date as string,
+          forecast_tons: Number(item.forecast_tons) || 0,
+        }));
+        
+        // Calculate breakdown: Feb 1-14 (historical) vs Feb 15-28 (forecasted)
+        let historical = 0;
+        let forecasted = 0;
+
+        const historicalEndDate = new Date("2026-02-14");
+
+        for (const item of dailyData) {
+          if (!item.date) continue;
+          try {
+            const date = parseISO(item.date);
+            if (date <= historicalEndDate) {
+              historical += item.forecast_tons;
+            } else {
+              forecasted += item.forecast_tons;
+            }
+          } catch {
+            // Skip invalid dates
+          }
+        }
+
+        if (!cancelled) {
+          setFebruaryBreakdown({
+            historical: historical,
+            forecasted: forecasted,
+          });
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) console.error("Error loading February breakdown:", err);
+      });
+
+    return () => { cancelled = true; };
+  }, [periodType, queryParams.scenario, selectedSku, selectedMill, selectedFlourType]);
+
   const uniqueSkus = allSkus.length > 0 ? allSkus : Array.from(new Set(dailyData.map((item) => item.sku_id))).sort();
   const uniqueFlourTypes = allFlourTypes.length > 0 ? allFlourTypes : Array.from(new Set(dailyData.map((item) => item.flour_type))).filter(Boolean).sort();
 
@@ -453,13 +549,28 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
         .sort((a, b) => a.period.localeCompare(b.period));
     }
     
-    // For quarter and year views, use existing logic
+    // For quarter and year views, combine historical and forecasted for February 2026
     return Object.entries(aggregated)
-      .map(([period, values]) => ({
-        period,
-        historical: values.historical > 0 ? values.historical : null,
-        forecasted: values.forecasted > 0 ? values.forecasted : null,
-      }))
+      .map(([period, values]) => {
+        const isFebruary2026 = period === "2026-02";
+        
+        // For February 2026, combine historical and forecasted into both fields for aggregate display
+        if (isFebruary2026) {
+          const total = values.historical + values.forecasted;
+          return {
+            period,
+            historical: total > 0 ? total : null,
+            forecasted: total > 0 ? total : null,
+          };
+        }
+        
+        // For other periods, use normal split
+        return {
+          period,
+          historical: values.historical > 0 ? values.historical : null,
+          forecasted: values.forecasted > 0 ? values.forecasted : null,
+        };
+      })
       .sort((a, b) => a.period.localeCompare(b.period));
   })();
 
@@ -605,42 +716,132 @@ export function SkuForecastTrendChart({ className }: SkuForecastTrendChartProps)
                   width={50}
                 />
                 <Tooltip
-                  contentStyle={{
-                    borderRadius: 6,
-                    border: "1px solid hsl(var(--border))",
-                    backgroundColor: "hsl(var(--card))",
-                    boxShadow: "0 2px 8px -2px rgb(0 0 0 / 0.1)",
-                    padding: "8px 12px",
-                  }}
-                  formatter={(value: number, name: string) => {
-                    if (value === null || value === undefined || isNaN(value) || value === 0) return null;
+                  content={({ active, payload, label }: TooltipProps<number, string>) => {
+                    if (!active || !payload || !payload.length) return null;
+                    
+                    const isFebruary2026 = label === "2026-02";
+                    const isMonthlyView = periodType === "quarter" || periodType === "year";
+                    
+                    // For February 2026 in monthly view, show breakdown
+                    if (isFebruary2026 && isMonthlyView && februaryBreakdown) {
+                      const historicalPayload = payload.find(p => p.dataKey === "historical");
+                      const forecastedPayload = payload.find(p => p.dataKey === "forecasted");
+                      
+                      // Both should have the same total value (aggregate)
+                      const total = historicalPayload?.value as number || forecastedPayload?.value as number || 0;
+                      
+                      return (
+                        <div
+                          style={{
+                            borderRadius: 6,
+                            border: "1px solid hsl(var(--border))",
+                            backgroundColor: "hsl(var(--card))",
+                            boxShadow: "0 2px 8px -2px rgb(0 0 0 / 0.1)",
+                            padding: "12px",
+                            fontSize: 12,
+                          }}
+                        >
+                          <div style={{ fontWeight: 600, marginBottom: "8px", fontSize: "13px" }}>
+                            Period: {label} (Historical + Forecasted)
+                          </div>
+                          <div style={{ fontWeight: 600, marginBottom: "4px", color: "hsl(var(--foreground))" }}>
+                            Total: {total.toLocaleString(undefined, { maximumFractionDigits: 2 })} tons
+                          </div>
+                          <div style={{ color: "hsl(var(--primary))", fontSize: "11px", marginLeft: "8px", marginTop: "4px" }}>
+                            Historical (Feb 1-14): {februaryBreakdown.historical.toLocaleString(undefined, { maximumFractionDigits: 2 })} tons
+                          </div>
+                          <div style={{ color: "hsl(45, 93%, 47%)", fontSize: "11px", marginLeft: "8px", marginTop: "2px" }}>
+                            Forecasted (Feb 15-28): {februaryBreakdown.forecasted.toLocaleString(undefined, { maximumFractionDigits: 2 })} tons
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    // For other periods, show normal tooltip
                     if (isCustom) {
-                      return [
-                        `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })} tons`,
-                        "Forecast"
-                      ];
+                      const totalPayload = payload.find(p => p.dataKey === "total");
+                      if (totalPayload && totalPayload.value) {
+                        return (
+                          <div
+                            style={{
+                              borderRadius: 6,
+                              border: "1px solid hsl(var(--border))",
+                              backgroundColor: "hsl(var(--card))",
+                              boxShadow: "0 2px 8px -2px rgb(0 0 0 / 0.1)",
+                              padding: "8px 12px",
+                              fontSize: 12,
+                            }}
+                          >
+                            <div style={{ fontWeight: 600, marginBottom: "4px" }}>
+                              {periodType === "week" || periodType === "month" 
+                                ? (() => {
+                                    const d = new Date(label + "T00:00:00");
+                                    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+                                  })()
+                                : (() => {
+                                    const parts = label.split("-");
+                                    if (parts.length === 2) {
+                                      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
+                                      return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+                                    }
+                                    return label;
+                                  })()
+                              }
+                            </div>
+                            <div>
+                              Forecast: {Number(totalPayload.value).toLocaleString(undefined, { maximumFractionDigits: 2 })} tons
+                            </div>
+                          </div>
+                        );
+                      }
+                    } else {
+                      const labels: Record<string, string> = {
+                        historical: "Historical",
+                        forecasted: "Forecasted",
+                      };
+                      
+                      return (
+                        <div
+                          style={{
+                            borderRadius: 6,
+                            border: "1px solid hsl(var(--border))",
+                            backgroundColor: "hsl(var(--card))",
+                            boxShadow: "0 2px 8px -2px rgb(0 0 0 / 0.1)",
+                            padding: "8px 12px",
+                            fontSize: 12,
+                          }}
+                        >
+                          <div style={{ fontWeight: 600, marginBottom: "4px" }}>
+                            {periodType === "week" || periodType === "month" 
+                              ? (() => {
+                                  const d = new Date(label + "T00:00:00");
+                                  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+                                })()
+                              : (() => {
+                                  const parts = label.split("-");
+                                  if (parts.length === 2) {
+                                    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
+                                    return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+                                  }
+                                  return label;
+                                })()
+                            }
+                          </div>
+                          {payload.map((entry, index) => {
+                            if (entry.value === null || entry.value === undefined || isNaN(entry.value as number) || entry.value === 0) return null;
+                            const dataKey = entry.dataKey as string;
+                            return (
+                              <div key={index} style={{ marginTop: "4px" }}>
+                                <span style={{ color: entry.color }}>● </span>
+                                <span>{labels[dataKey] || dataKey}: {Number(entry.value).toLocaleString(undefined, { maximumFractionDigits: 2 })} tons</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
                     }
-                    const labels: Record<string, string> = {
-                      historical: "Historical",
-                      forecasted: "Forecasted",
-                    };
-                    return [
-                      `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })} tons`,
-                      labels[name] || name
-                    ];
-                  }}
-                  labelStyle={{ fontWeight: 600, marginBottom: 4, fontSize: 11 }}
-                  labelFormatter={(label: string) => {
-                    if (periodType === "week" || periodType === "month") {
-                      const d = new Date(label + "T00:00:00");
-                      return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
-                    }
-                    const parts = label.split("-");
-                    if (parts.length === 2) {
-                      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
-                      return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-                    }
-                    return label;
+                    
+                    return null;
                   }}
                 />
                 {!isCustom && (

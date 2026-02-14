@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ChartContainer } from "@/components/dashboard/ChartContainer";
 import { useFilters } from "@/context/FilterContext";
@@ -6,11 +6,12 @@ import { downloadReportCsv, emailReport } from "@/lib/api";
 import { Download, Send, Loader2, ClipboardList, Gauge, TrendingUp, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
+import { parseISO, format } from "date-fns";
 
 const reportDefinitions = [
   {
     id: "monthly-plan",
-    title: "Monthly Recipe Plan",
+    title: "Production Plan",
     type: "automated" as const,
     schedule: "1st of each month",
     description: "Recipe scheduling across all mills",
@@ -43,15 +44,45 @@ const reportDefinitions = [
 ];
 
 export default function Reports() {
-  const { queryParams } = useFilters();
+  const { queryParams, periodFilter } = useFilters();
   const { toast } = useToast();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [emailingId, setEmailingId] = useState<string | null>(null);
 
+  // Calculate display dates: for preset filters, show adjusted dates starting from February 2026
+  // For custom date ranges, show the actual selected dates
+  const displayDates = useMemo(() => {
+    const FEBRUARY_2026_START = new Date("2026-02-01");
+    
+    if (periodFilter && periodFilter !== "custom") {
+      // For preset filters, adjust dates to start from February 2026
+      let fromDate = parseISO(queryParams.from_date);
+      let toDate = parseISO(queryParams.to_date);
+      
+      if (fromDate < FEBRUARY_2026_START) {
+        fromDate = FEBRUARY_2026_START;
+      }
+      if (toDate < FEBRUARY_2026_START) {
+        toDate = FEBRUARY_2026_START;
+      }
+      
+      return {
+        from_date: format(fromDate, "yyyy-MM-dd"),
+        to_date: format(toDate, "yyyy-MM-dd"),
+      };
+    }
+    
+    // For custom date ranges, use the actual selected dates
+    return {
+      from_date: queryParams.from_date,
+      to_date: queryParams.to_date,
+    };
+  }, [queryParams.from_date, queryParams.to_date, periodFilter]);
+
   const handleDownload = async (reportId: string) => {
     setDownloadingId(reportId);
     try {
-      await downloadReportCsv(reportId, queryParams);
+      await downloadReportCsv(reportId, { ...queryParams, period_filter: periodFilter });
       toast({ title: "Download started", description: `${reportId} CSV is downloading.` });
     } catch (err: any) {
       toast({ title: "Download failed", description: err.message, variant: "destructive" });
@@ -63,7 +94,7 @@ export default function Reports() {
   const handleEmail = async (reportId: string) => {
     setEmailingId(reportId);
     try {
-      const result = await emailReport(reportId, queryParams);
+      const result = await emailReport(reportId, { ...queryParams, period_filter: periodFilter });
       toast({ title: "Email sent", description: result.message || "Report emailed successfully." });
     } catch (err: any) {
       toast({
@@ -154,11 +185,11 @@ export default function Reports() {
             <div className="grid gap-3 text-sm">
               <div className="flex justify-between border-b border-border pb-2">
                 <span className="font-medium text-muted-foreground">From Date</span>
-                <span className="font-mono text-foreground">{queryParams.from_date}</span>
+                <span className="font-mono text-foreground">{displayDates.from_date}</span>
               </div>
               <div className="flex justify-between border-b border-border pb-2">
                 <span className="font-medium text-muted-foreground">To Date</span>
-                <span className="font-mono text-foreground">{queryParams.to_date}</span>
+                <span className="font-mono text-foreground">{displayDates.to_date}</span>
               </div>
               <div className="flex justify-between border-b border-border pb-2">
                 <span className="font-medium text-muted-foreground">Horizon</span>

@@ -1179,6 +1179,7 @@ def generate_all_data(output_dir="datasets"):
 
     print("    → fact_sku_forecast (ACTUAL historical data only, ends 2026-02-14) …")
     fact_sku_forecast = generate_fact_sku_actuals(time_dim, dim_sku)
+    # February data is generated naturally with real-world variations (weekend, Ramadan, seasonality, etc.)
     fact_sku_forecast.to_csv(f"{output_dir}/fact_sku_forecast.csv", index=False)
 
     print("    → fact_bulk_flour_requirement …")

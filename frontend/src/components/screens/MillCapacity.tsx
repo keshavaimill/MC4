@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import { format } from 'date-fns';
-import { AlertTriangle, CheckCircle, Factory, Clock, Settings, ArrowUpDown, Shield } from 'lucide-react';
+import { AlertTriangle, Check, Factory, Clock, Settings, ArrowUpDown, Shield } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -284,14 +284,18 @@ export default function MillCapacity({ fromDate, toDate, scenario = 'base' }: Mi
                       {item.status === 'overload' ? (
                         <button
                           onClick={() => setShowResolution(showResolution === item.mill ? null : item.mill)}
-                          className="inline-flex items-center space-x-1 text-red-500 hover:text-red-700 transition-colors"
+                          className="inline-flex items-center justify-center rounded-md p-1 hover:bg-accent"
                           title="Click for resolution suggestions"
                         >
-                          <AlertTriangle className="w-5 h-5" />
-                          <span className="text-xs font-medium">⚠</span>
+                          <AlertTriangle className="h-4 w-4 text-red-600" />
                         </button>
                       ) : (
-                        <CheckCircle className="w-5 h-5 text-green-500 mx-auto" />
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center rounded-md p-1 hover:bg-accent"
+                        >
+                          <Check className="h-4 w-4 text-emerald-600" />
+                        </button>
                       )}
                     </td>
                   </tr>

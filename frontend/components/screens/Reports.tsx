@@ -10,7 +10,7 @@ interface ReportsProps {
 
 export default function Reports({ horizon, fromDate, toDate }: ReportsProps) {
   const reports = [
-    { id: 'monthly-plan', name: 'Monthly Recipe Plan', description: 'Recipe schedule per mill' },
+    { id: 'monthly-plan', name: 'Production Plan', description: 'Recipe schedule per mill' },
     { id: 'capacity-outlook', name: 'Capacity Outlook', description: '2026 capacity analysis' },
     { id: 'demand-forecast', name: 'Demand Forecast', description: 'SKU-level forecasts' },
     { id: 'raw-material', name: 'Raw Material Report', description: 'Wheat prices and availability' },
