@@ -13,7 +13,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'https://aimilltest-dbd6dvhdcceef3d4.westus2-01.azurewebsites.net',
+        target: 'https://mc4-forecasting-backend-hne0aufgdqdhf6a4.westus2-01.azurewebsites.net',
         changeOrigin: true,
       },
     },
