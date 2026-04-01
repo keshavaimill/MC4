@@ -1,6 +1,6 @@
 /**
  * Thin API helper – all backend calls go through here.
- * Uses the Vite dev-server proxy (/api → http://localhost:8008).
+ * Backend URL: Update this with your deployed Azure backend URL
  */
 
 function qs(params: Record<string, string | undefined>): string {
@@ -11,7 +11,11 @@ function qs(params: Record<string, string | undefined>): string {
   return "?" + new URLSearchParams(entries).toString();
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+// TODO: Replace with your actual Azure backend URL
+// Example formats:
+// - https://your-app-name.azurewebsites.net
+// - https://your-custom-domain.com
+const API_BASE_URL = "https://mc4-forecasting-backend-hne0aufgdqdhf6a4.westus2-01.azurewebsites.net/";
 
 async function get<T = unknown>(
   path: string,
